@@ -1,3 +1,158 @@
-The GleShYS cloud.
+# The GleShYS cloud.
 
 Welcome to the new^wold world.
+
+# tldr;
+
+TODO: The quick start gudie
+
+Set your PATH to include the bin directory of this repo as the first
+instance.
+
+> brother ~$ grep brother.*PATH .bashrc
+
+> export PATH="/home/brother/git/other/gleshys/bin:$PATH"
+
+
+## Persistant environment
+
+The GleShYS settings file is found by validating in this particular
+order.
+
+1. A file provided on the command line
+2. environment variable GLESHYSSETTINGS
+3. ~/.config/gleshys.cfg
+4. A temporary file created at login time in TMPDIR (eg. /tmp). A
+   successful login will keep the apikey stored in this file. Use
+   `gleshys-session-destroy` to invalidate the key and remove the
+   settings file.
+
+# What's up?
+
+As a first bare minimum goal I want to have a bunch of binaries that
+can be installed in your PATH and give you easy access to command line
+tools for interacting with the API and the services behind it.
+
+For this to work there are a couple of important must haves with
+login, configuration persistence and the likes.
+
+As a related challenge I want the dependency list to be small.
+
+* bash
+  It uses bash specifics and will not be portable to other shell
+  types. I will use shellcheck and honour readability before cool
+  shell syntax.
+
+* curl
+  The GleSYS API is accessible via HTTPs. Curl is a widely used
+  application to interact with such services.
+
+* jq
+  The GleSYS API can be accessed from your application in numerous
+  ways. I've opted for json and will use jq extensivly. Parsing XML
+  would have meant something like XML Starlet. Choose your poison.
+
+* coreutils
+  Some commands provided by coreutils are in use. Should pretty much
+  never pose a problem on a system having bash already.
+
+## Current status
+
+* [ ] account
+* [ ] api
+* [x] archive
+  * covered by `bin/archive`
+  * [ ] cloak passwords, they are managed via -p command line flag and
+        thus public for the machine.
+* [ ] country
+* [ ] customer
+  * [!] customer/listprojects
+* [ ] domain
+* [ ] email
+* [x] filestorage
+  * covered by `bin/file-storage`
+  * [ ] Add support for access lists.
+  * [ ] Need to settle the output. Possibly add an interactive mode.
+* [ ] invoice
+* [ ] ip
+  * [ ] ip/listfree
+  * [ ] ip/listown
+  * [ ] ip/details
+  * [ ] ip/take
+  * [ ] ip/release
+  * [ ] ip/add - need server or loadbalancer to work
+  * [ ] ip/remove - need server or loadbalancer to work
+  * [ ] ip/setptr
+  * [ ] ip/resetptr
+* [ ] loadbalancer
+* [ ] network
+* [ ] networkadapter
+* [ ] objectstorage
+  * [ ] objectstorage/instancedetails
+  * [ ] objectstorage/listinstances
+  * [ ] objectstorage/createinstance
+  * [ ] objectstorage/editinstance
+  * [ ] objectstorage/deleteinstance
+  * [ ] objectstorage/createcredential
+  * [ ] objectstorage/deletecredential
+* [ ] paymentcard
+* [ ] project
+* [ ] server
+* [ ] sshkey
+* [ ] transaction
+* [ ] user
+  * [!] user/login
+  * [!] user/listorganizations
+* [ ] vpn
+ * [ ] vpn/listusers
+ * [ ] vpn/createuser
+ * [ ] vpn/deleteuser
+ * [ ] vpn/edituser
+
+ * ! Are touched in some way during the process.
+ * x These are considered 'done' by some definition. See further notes.
+
+## TODO / Help needed
+
+This is stuff that has popped up during development. There are also
+som TODO comments sprinkled in the code filed, use `git grep '# TODO'`
+to find these. Some of them overlap this list.
+
+* [ ] Rename commands to a sane pattern. They are too generic.
+* [ ] check depedencies
+* [ ] login
+  * a `session-restart` to check if the apikey provided is a permanent
+    or not...or if the session is still valid.
+  * add a common way to find settingsfile if no one was provided, will
+    show as a login prompt and be seemless for the user.  if no
+    GLESHYSSETTINGS and no ~/.config... create a disposable
+    settingsfile and be vocal about it. If the tool created the file
+    it can also remove it.
+	Probably a good idea to check if executed as interactive or not....
+* [ ] file storage edit access lists
+  * need server list capabilities
+* [ ] bash completion support
+* [ ] do we need a INPUTRC for readline?
+* [ ] add fault tolerance and internals for curl-json
+      as a start it would be nice if it piped a !200 to jq and then
+      exited with error code from curl. current process pretty much
+      forces the user to never ever fail in the input. or forces the
+      script to do input validation (and that require knowledge about
+      acceptable inputs....which is hard)
+
+# License
+
+This project is distributed free using the MIT license as approved by
+the OSI. This information is also stated in all applicable files in
+the project.
+
+The license text can be found in the file LICENSE or at the [OSI web
+pages](https://opensource.org/licenses/MIT).
+
+# Development and reporting issues
+
+There will be some project page somewhere some day.
+
+If some dependency is not aligned the version check can be
+bypassed... when that feature is built.
+See `gleshys-dep-check` for notes.
