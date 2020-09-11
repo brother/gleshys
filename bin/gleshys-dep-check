@@ -1,0 +1,85 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+
+# Lazy start version just assures my versions. Fairly sure any bash 4+ will do.
+# curl is probably like "any version. at all. period. hard stop."
+# jq might be harder, haven't done any magic really yet.
+
+# I am using grep here. Check version for that too? =)
+
+if ! bash --version | grep -q -o " 5.0.18" -m 1; then
+	cat <<-EOF
+		bash version might not be compatible. Please use debug mode
+		and report your findings at the project page.
+		See README for further instructions.
+
+		Info:
+        ---------
+		$(bash --version)
+        ---------
+
+	EOF
+	exit 1
+fi
+
+if ! curl --version | grep -q -o " 7.72.0" -m 1; then
+	cat <<-EOF
+		curl version might not be compatible. Please use debug mode
+		and report your findings at the project page.
+		See README for further instructions.
+
+		Info:
+        ---------
+		$(curl --version)
+        ---------
+
+	EOF
+	exit 2
+fi
+
+if ! jq --version | grep -q -o "jq-1.6" -m 1; then
+	cat <<-EOF
+		jq version might not be compatible. Please use debug mode
+		and report your findings at the project page.
+		See README for further instructions.
+
+		Info:
+        ---------
+		$(jq --version)
+        ---------
+
+	EOF
+	exit 3
+fi
+
+if ! mktemp --version | grep -q -o "coreutils..8.32" -m 1; then
+	cat <<-EOF
+		The coreutils version might not be compatible. Please use
+		debug mode and report your findings at the project page.
+		See README for further instructions.
+
+		Core utils provides
+		 - dirname
+		 - mktemp
+
+		Info:
+        ---------
+		$(mktemp --version)
+        ---------
+
+	EOF
+	exit 4
+fi
+
+# TODO
+# Check if the tools are available before executing?
+# Some verbose mode?
+# Possible to skip checking via settings flag.
+# Store timestamp for last check in ~/.config/gleshys.cfg or such
+# And then read that to asses if we need to check compat again... once
+#   per 24h is a good floor probably
