@@ -1,0 +1,33 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+conffile=$1
+needle=$2
+default=$3
+[[ -c $conffile || -b $conffile ]] && { echo "can't read from character/block device" >&2 ; exit 1; }
+[[ -e $conffile ]] || { echo "$default" ; exit $(($# != 3)) ; }
+ret=""
+while read -r line; do
+	[[ $line == *=* ]] || continue
+	# shellcheck disable=SC2086,SC2116
+	key=$(echo ${line%%=*})
+	if [[ $key == "$needle" ]]; then
+		ret=${line#*=}
+		ret="${ret##*( |$'\t')}"
+		for q in "'" '"'; do
+			if [[ $ret == $q*$q ]]; then
+				ret=${ret#$q} ; ret=${ret%$q} ; break
+			fi
+		done
+		break
+	fi
+done < "$conffile"
+echo "${ret:-$default}"
+if [[ $ret ]] || (( $# == 3 )); then
+	exit 0
+fi
+exit 1

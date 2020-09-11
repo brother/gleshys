@@ -1,0 +1,32 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+if [[ -f $1 ]]; then
+	settingsfile=$1
+elif [[ -f $GLESHYSSETTINGS ]]; then
+	settingsfile=$GLESHYSSETTINGS
+elif [[ -f ~/.config/gleshys.cfg ]]; then
+	settingsfile=~/.config/gleshys.cfg
+else
+	echo "The settings file provided must be a regular readable file. Aborting."
+	exit 1
+fi
+
+#username=$(cfg-get "$settingsfile" "username")
+#apikey=$(cfg-get "$settingsfile" "apikey")
+#curl-json "{\"username\": \"$username\",\"password\": \"$apikey\"}" "user/logout"
+
+cfg-set "$settingsfile" "apikey" ""
+cfg-set "$settingsfile" "organization" ""
+cfg-set "$settingsfile" "organizationname" ""
+cfg-set "$settingsfile" "project" ""
+cfg-set "$settingsfile" "projectname" ""
+
+
+if [[ $(cfg-get "$settingsfile" "tmpfile" "false") == "true" ]]; then
+	rm "$settingsfile"
+fi

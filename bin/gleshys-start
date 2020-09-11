@@ -1,0 +1,127 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") [-o 12345] [-p cl12345] [~/.settings]
+
+		-o	Organization to use.
+		-p	Project to use.
+
+			If organization or project are specified the automatic
+			wizard for these are bypassed.
+
+			The settings file is discovered as usual via environment
+			or default location if omitted at command line.
+
+	EOF
+}
+
+while getopts "o:p:" option; do
+	case "$option" in
+		o) opt_organization=$OPTARG ;;
+		p) opt_project=$OPTARG ;;
+		*) echo "$option" :: ; show_help ; exit 1 ;;
+	esac
+done
+shift $((${OPTIND:-1}-1))
+
+if [[ -f $1 ]]; then
+	settingsfile=$1
+elif [[ -f $GLESHYSSETTINGS ]]; then
+	settingsfile=$GLESHYSSETTINGS
+elif [[ -f ~/.config/gleshys.cfg ]]; then
+	settingsfile=~/.config/gleshys.cfg
+elif [[ -z $1 ]]; then
+	settingsfile=$(mktemp -t gleshys.XXXXXX)
+	echo "Using temporary settingsfile: $settingsfile"
+	echo "Use the configuration file option for other tools to find it."
+	cfg-set "$settingsfile" "tmpfile" "true"
+else
+	echo "The settings file provided must be a regular readable file. Aborting."
+	exit 1
+fi
+
+doLogin() {
+	local username=$1
+	local password=$2
+	local otp=$3
+	if [[ $otp == "" ]]; then
+		curl-json "{\"username\": \"$username\",\"password\": \"$password\"}" "user/login"
+	else
+		curl-json "{\"username\": \"$username\",\"password\": \"$password\",\"otp\": \"$otp\"}" "user/login"
+	fi
+}
+
+# TODO should probably be moved to a gleshys-demand-value thing in bin
+demand_value () {
+	local prompt="$1"
+	local silent="$2"
+	local REPLY
+	while :; do
+		if [[ $silent ]]; then
+			read -res -p "$prompt: "
+		else
+			read -re -p "$prompt: "
+		fi
+		if [[ ! $REPLY ]]; then
+			continue
+		else
+			echo "$REPLY"
+			return 0
+		fi
+	done
+}
+
+printf "\n%s\n==========================================\n\n" "GleSYS Login"
+
+user=$(demand_value "Username")
+pass=$(demand_value "Password" silent)
+# Add a new line as the silent demand eats the new line.
+echo
+
+logindata=$(doLogin "$user" "$pass")
+
+while :; do
+	mapfile -t processed < <(echo "$logindata" | jq ".response.status.code,.response.status.text")
+	if [[ ${processed[0]} != 200 ]]; then
+		# Remove quote marks from error string to make it look better
+		# in case statement.
+		case ${processed[1]//\"/} in
+			Yubike*|Google*)
+				otp=$(demand_value "One Time Password")
+				logindata=$(doLogin "$user" "$pass" "$otp")
+				;;
+			*)
+				echo "fail"
+				echo "$logindata" | jq
+				echo "fail"
+				exit 1
+				;;
+		esac
+	else
+		break
+	fi
+done
+apikey=$(echo "$logindata" | jq ".response.login.apikey" | tr -d \")
+
+cfg-set "$settingsfile" "username" "$user"
+cfg-set "$settingsfile" "apikey" "$apikey"
+
+
+if [[ $opt_organization ]]; then
+	cfg-set "$settingsfile" "organization" "$opt_organization"
+else
+	cfg-set "$settingsfile" "organization" ""
+	gleshys-pick-organization
+fi
+if [[ $opt_project ]]; then
+	cfg-set "$settingsfile" "project" "${opt_project,,}"
+else
+	cfg-set "$settingsfile" "project" ""
+	gleshys-pick-project
+fi

@@ -1,0 +1,50 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+usage() {
+	echo "USAGE: curl-json \"{\"my\":\"json\"}\" target-name"
+	exit 1
+
+}
+
+# $1 == json input
+if [[ -z $1 ]]; then
+	usage
+fi
+json=$1
+
+# $2 == API target
+if [[ -z $2 ]]; then
+	usage
+fi
+target=$2
+
+# $3 == AUTH (optional)
+auth=""
+if [[ $3 ]]; then
+	auth=(--basic -u "$3")
+fi
+
+# TODO
+# Discover session logout things. Maybe store a ticker or such?
+# {
+#   "response": {
+#     "status": {
+#       "code": 401,
+#       "timestamp": "2020-08-19T22:17:46+02:00",
+#       "text": "Authentication failed. Double check the username and key.",
+#       "transactionid": null
+#     },
+#     "debug": {
+#       "input": []
+#     }
+#   }
+# }
+
+
+curl -s -X POST "${auth[@]}" --header "content-type: application/json" --header "User-Agent: GleShYS" --data-binary "$json" "https://api.glesys.com/$target"
+exit $?

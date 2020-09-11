@@ -1,0 +1,51 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+filename=$1
+key=$2
+value=$3
+
+error () {
+	cat >&2 <<-EOF
+		USAGE: $(basename "$0") filename key value
+
+		ERROR: $@
+	EOF
+	exit 1
+}
+(($# != 3)) && error "Invalid number of arguments."
+[[ ! $filename ]] && error "Invalid filename."
+[[ ! $key ]] && error "Key missing."
+[[ $key == *[$'\t\n\r'\ \'\"]* ]] && error "Invalid characters in key."
+[[ $value  == *[$'\n\r']* ]] && error "Can't store newlines."
+[[ -h $filename ]] && filename=$(readlink "$filename")
+[[ -b $filename ]] && error "Not a regular file."
+[[ -c $filename ]] && error "Not a regular file."
+[[ -d $filename ]] && error "Not a regular file."
+[[ ! -d $(dirname "$filename") ]] && error "Path does not exist."
+
+tmp=$(mktemp -t newcfg.XXXXXX)
+cleanup() {
+	rm -f "$tmp"
+}
+trap "cleanup" EXIT
+
+if [[ ! -f $filename ]]; then
+	touch "$filename" || error "Can't create file."
+fi
+{
+	while read -r line; do
+		# shellcheck disable=SC2086,SC2116
+		[[ $key != $(echo ${line%%=*}) ]] && echo "$line"
+	done < "$filename"
+	if [[ $value == *[$'\t'\ \'\"]* ]]; then
+		echo "$key='$value'"
+	else
+		echo "$key=$value"
+	fi
+} | sort > "$tmp"
+cat "$tmp" > "$filename"

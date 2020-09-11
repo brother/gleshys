@@ -1,0 +1,23 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+if [[ -f $1 ]]; then
+	echo "$1"
+elif [[ -f $GLESHYSSETTINGS ]]; then
+	echo "$GLESHYSSETTINGS"
+elif [[ -f ~/.config/gleshys.cfg ]]; then
+	echo ~/.config/gleshys.cfg
+elif [[ -z $1 ]]; then
+	settingsfile=$(mktemp -t gleshys.XXXXXX)
+	echo "Using temporary settingsfile: $settingsfile"
+	echo "Use the configuration file option for other tools to find it."
+	cfg-set "$settingsfile" "tmpfile" "true"
+	echo "$settingsfile"
+else
+	echo "The settings file provided must be a regular readable file. Aborting."
+	exit 1
+fi

@@ -1,0 +1,74 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+if [[ -f $1 ]]; then
+	file=$1
+elif [[ $1 ]]; then
+	echo "Provided settings file must be regular and readable. Aborting."
+	exit 1
+fi
+settings=$(gleshys-discover-settings "$file")
+
+apikey=$(cfg-get "$settings" "apikey")
+organization=$(cfg-get "$settings" "organization")
+currentProject=$(cfg-get "$settings" "project")
+
+data=$(curl-json "{}" customer/listprojects "$organization:$apikey" | jq '.response.projects[]' 2>/dev/null)
+
+declare -A out
+while read -r line; do
+	projectKey=${line%%,*}
+	projectName=${line#*,}
+	out[${projectKey:1:-1}]=${projectName:1:-1}
+done < <(echo "$data" | jq -r '[.accountname,.name] | @csv')
+
+if (( ${#out[@]} == 0 )); then
+	echo "No applicable projects found. Check your session and restart."
+	exit 1
+fi
+
+if (( ${#out[@]} == 1 )); then
+	cfg-set "$settings" "project" "${!out[@]}"
+	cfg-set "$settings" "projectname" "${out[@]}"
+	echo "Only one project available (${!out[*]} - ${out[*]}). Selected."
+	exit
+fi
+
+echo "Pick project"
+while :; do
+	count=1
+	for projectKey in "${!out[@]}"; do
+		projectName=${out[$projectKey]}
+		projects[$count]=$projectKey
+		names[$count]=$projectName
+		if [[ $currentProject ]] && [[ $currentProject == "$projectKey" ]]; then
+			printf "*%2d) %s (%s)\n" "$count" "$projectName" "$projectKey"
+		else
+			printf " %2d) %s (%s)\n" "$count" "$projectName" "$projectKey"
+		fi
+		((count++))
+	done
+	echo
+	echo "  Q) Quit"
+	echo
+	read -erp " > " reply
+
+	if [[ $reply =~ ^[0-9]+$ ]] && (( reply > 0 )) && (( reply < count )); then
+		cfg-set "$settings" "project" "${projects[$reply]}"
+		cfg-set "$settings" "projectname" "${names[$reply]}"
+		break
+	else
+		case $reply in
+			q|Q)
+				exit 2
+				;;
+			*)
+				echo "Invalid choice"
+				;;
+		esac
+	fi
+done
