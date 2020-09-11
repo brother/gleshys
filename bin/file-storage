@@ -1,0 +1,317 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+# TODO settle the output format. Possibly have a interactive readable
+#      format and use a comma separated standardized one for sink jobs
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options] [volume key]
+
+		list		  Show list of volumes for current project
+		create		  Create new volume
+					  -d datacenter, eg falkenberg|stockholm
+					  -p planid
+					  (-n name)
+					  (-a, if present autopromotion enabled)
+		info		  Show info about volume
+					  Volume key must be specified
+		edit		  Edit volume
+					  Volume key must be specified
+					  (-p planid - guid or quota)
+					  (-a, yes/no bool)
+					  (-l list of servers with access)
+		delete		  Delete volume
+					  Volume key must be specified
+		plans		  List available storage plans
+
+		-c			  Applicable for all actions.
+					  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+# TODO wrap curl-json to avoid repeating the auth?
+
+volume_list () {
+	curl-json "{}" filestorage/listvolumes "$project:$apikey" | jq -r '.response.volumes[] | [.volumeid, .name, .plan.quota, .datacenter, .status, .islocked] | @csv' | tr -d '"'
+	exit 0
+}
+
+plan_list () {
+	curl-json "{}" filestorage/listplans "$project:$apikey" | jq -r '.response.plans[] | [.planid, .quota] | @csv' | tr -d '"'
+	exit 0
+}
+
+details () {
+	local key=$1
+	if [[ -z $key ]]; then
+		echo "Missing volume key."
+		exit 1
+	fi
+# TODO: need an example for accesslist and server-list or something implemented
+#   accesslist: [],
+
+	curl-json "{\"volumeid\":\"$key\"}" filestorage/volumedetails "$project:$apikey" | jq -r '.response.volume | [.fqdn,.datacenter,.name,.status,.islocked,.autopromotion,.accesslist[],.used,.plan.quota,.maintenancewindow.weekday,.maintenancewindow.starttime,.maintenancewindow.durationinminutes] | @csv' | tr -d '"'
+}
+
+create () {
+	local datacenter=${1^}
+	local plan=$2
+	local autopromotion=$3
+	local name=$4
+
+	if [[ -n $name ]]; then
+		setName=",\"name\":\"$name\""
+	fi
+	# TODO when failure occurs a lone "," is sent to STDOUT. Maybe catch those errors?
+	curl-json "{\"datacenter\":\"$datacenter\", \"planid\":\"$plan\", \"autopromotion\":\"$autopromotion\" $setName}" filestorage/createvolume "$project:$apikey" | jq -r '.response.volume | [.volumeid, .status] | @csv' | tr -d '"'
+}
+
+edit () {
+	local key=$1
+	local autopromotion=$2
+	local plan=$3
+	# TODO accesslist need attention.
+	local accesslist=$4
+
+	if [[ -n $plan ]]; then
+		setPlan=",\"planid\":\"$plan\""
+	fi
+
+	curl-json "{\"volumeid\":\"$key\", \"autopromotion\":\"$autopromotion\" $setPlan}" filestorage/editvolume "$project:$apikey" | jq -r '.response | [.status.text, .volume.volumeid, .volume.status, .volume.plan.quota, .volume.autopromotion, .volume.accesslist[]] | @csv' | tr -d '"'
+
+}
+
+delete () {
+	local key=$1
+	if [[ -z $key ]]; then
+		echo "Missing volume key."
+		exit 1
+	fi
+
+	curl-json "{\"volumeid\":\"$key\"}" filestorage/deletevolume "$project:$apikey" | jq -r '.response.status.code'
+}
+
+if [[ $action == "list" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	volume_list
+elif [[ $action == "create" ]]; then
+	while getopts "d:p:n:c:a" option; do
+		case "$option" in
+			d) opt_datacenter=$OPTARG ;;
+			p) opt_plan=$OPTARG ;;
+			n) opt_name=$OPTARG ;;
+			a) opt_autopromote=1 ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+
+	if [[ -z $opt_datacenter ]]; then
+		echo "Datacenter missing."
+		exit 1
+	fi
+
+	if [[ -z $opt_plan ]]; then
+		# TODO extract plan selection from edit to be able to use the
+		# quota value instead of GUID.
+		echo "Plan GUID missing."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	create "$opt_datacenter" "$opt_plan" "${opt_autopromote:-0}" "${opt_name:-}"
+
+elif [[ $action == "info" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing volume key" >&2
+		exit 1
+	fi
+	key=$*
+
+	details "$key"
+
+elif [[ $action == "edit" ]]; then
+	while getopts "p:a:l:c:" option; do
+		case "$option" in
+			p)
+				opt_plan=$OPTARG
+				willProcess=1
+				;;
+			a)
+				opt_autopromote=$OPTARG
+				willProcess=1
+				;;
+			l)
+				# TODO implement accesslist stuff
+				opt_accesslist=$OPTARG
+				#willProcess=1
+				;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	if [[ -z $willProcess ]]; then
+		echo "At least one of plan, access list or autopromotion must be edited to make sense."
+		exit 1
+	fi
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing volume key" >&2
+		exit 1
+	fi
+	key=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	currentData=$(details "$key")
+	IFS=',' read -ra fields <<< "$currentData"
+	if [[ -z $opt_autopromote ]]; then
+		opt_autopromote=${fields[5]}
+	fi
+
+	# TODO extract to function and use in create as well. This enables
+	# the quota to be used and not forcing the GUID.
+	if [[ -n $opt_plan ]]; then
+		mapfile -t plans < <(plan_list)
+
+		for line in "${plans[@]}"; do
+			IFS=',' read -ra guid <<< "$line"
+			if [[ ${guid[1]} == "$opt_plan" ]]; then
+				planGuid=${guid[0]}
+				break
+			fi
+			if [[ ${guid[0]} == "$opt_plan" ]]; then
+				planGuid=${guid[0]}
+				break
+			fi
+		done
+
+		if [[ -z $planGuid ]]; then
+			echo "Invalid plan guid specified."
+			exit 1
+		fi
+	fi
+
+	# TODO accesslist?
+	edit "$key" "$opt_autopromote" "${planGuid:-}"
+
+elif [[ $action == "delete" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing volume key" >&2
+		exit 1
+	fi
+	key=$*
+
+	delete "$key"
+
+elif [[ $action == "plans" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	plan_list
+else
+	show_help
+	exit 1
+fi
