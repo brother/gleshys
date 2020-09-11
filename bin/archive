@@ -1,0 +1,310 @@
+#!/bin/bash
+# This file is distributed ad part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options]
+
+		list	  Show list of archives for current project
+		create	  Create new archive volume
+				  -u username
+				  -p password
+				  -s size in Gb
+				  (-d description string for archive)
+		info	  Show info about volume
+				  -u username for archive
+		edit	  Edit archive
+				  -u username
+				  (-p password, set new password)
+				  (-s size in Gb, can only be larger than before)
+				  (-d description string for archive)
+		delete	  Delete volume
+				  -u username
+
+		sizes	  List all applicable sizes.
+		-c		  Applicable for all actions.
+				  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+list_archives () {
+	curl-json "{}" archive/list "$project:$apikey" | jq -r '.response.archives[] | [.username, .sizetotal, .node.hostname, .locked] | @csv' | tr -d '"'
+}
+
+create_archive () {
+	local key=$1
+	local password=$2
+	local size=$3
+	curl-json "{\"username\":\"$key\",\"password\":\"$password\",\"size\":\"$size\"}" archive/create "$project:$apikey" | jq -r '.response.status.text'
+}
+
+show_info () {
+	local key=$1
+	curl-json "{\"username\":\"$key\"}" archive/details "$project:$apikey" | jq -r '.response.details | [.username, .sizetotal, .node.hostname, .locked, ((.cost.amount|tostring) +" "+  .cost.currency+"/"+.cost.timeperiod), .description] | @csv' | tr -d '"'
+}
+
+set_description () {
+	local key=$1
+	local description=$2
+	curl-json "{\"username\":\"$key\",\"description\":\"$description\"}" archive/changedescription "$project:$apikey" | jq -r '.response.status.text'
+}
+
+set_password () {
+	local key=$1
+	local password=$2
+
+	curl-json "{\"username\":\"$key\",\"password\":\"$password\"}" archive/changepassword "$project:$apikey" | jq -r '.response.status.text'
+}
+
+size_list () {
+	curl-json "{}" archive/allowedarguments "$project:$apikey" | jq -r '.response.argumentslist.archivesize | @csv'
+}
+
+remove () {
+	local key=$1
+
+	curl-json "{\"username\":\"$key\"}" archive/delete "$project:$apikey" | jq -r '.response.status.text'
+}
+
+# TODO extract to stand alone command.
+inarray() { local q=$1 e; shift; (( $# )) && for e; do [[ $q = "$e" ]] && return; done; }
+
+sizeIsOk () {
+	local proposed=$1
+	IFS=',' read -ra allowedSizes <<< "$(size_list)"
+	inarray "$proposed" "${allowedSizes[@]}"
+}
+
+set_size () {
+	local key=$1
+	local size=$2
+
+	curl-json "{\"username\":\"$key\",\"size\":\"$size\"}" archive/resize "$project:$apikey" | jq -r '.response.status.text'
+}
+
+
+if [[ $action == "list" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_archives
+
+elif [[ $action == "create" ]]; then
+	while getopts "u:p:s:d:c:" option; do
+		case "$option" in
+			u) opt_key=$OPTARG ;;
+			p) opt_password=$OPTARG ;;
+			s) opt_size=$OPTARG ;;
+			d) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ $opt_key != ${project}_* ]]; then
+	   echo "ABORT: The username starts with the project key and a underscore." >&2
+	   exit 1
+	fi
+
+	# TODO if password is omitted and bash is in interactive offer a prompt to set the password.
+	# TODO use the demand_value function from gleshys-start. Extract it to a stand alone command.
+	if (( ${#opt_password} < 8 )) ; then
+		echo "ABORT: Password must be at least eight (8) characters long." >&2
+		show_help
+		exit 1
+	fi
+
+	if ! sizeIsOk "$opt_size"; then
+		echo "ABORT: Illegal size specified." >&2
+		show_help
+		exit 1
+	fi
+
+	create_archive "$opt_key" "$opt_password" "$opt_size"
+
+	if [[ $opt_description ]]; then
+		set_description "$opt_key" "$opt_description"
+	fi
+
+elif [[ $action == "info" ]]; then
+	while getopts "u:c:" option; do
+		case "$option" in
+			u) opt_key=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $opt_key ]]; then
+		echo "ABORT: Info about what?" >&2
+		show_help
+		exit 1
+	fi
+
+	if [[ $opt_key != ${project}_* ]]; then
+	   echo "ABORT: The username starts with the project key and a underscore." >&2
+	   exit 1
+	fi
+
+	show_info "$opt_key"
+
+elif [[ $action == "edit" ]]; then
+	while getopts "u:p:s:d:c:" option; do
+		case "$option" in
+			u) opt_key=$OPTARG ;;
+			p) opt_password=$OPTARG ;;
+			s) opt_size=$OPTARG ;;
+			d) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $opt_key ]]; then
+		echo "ABORT: Edit what archive? Missing -u ..." >&2
+		show_help
+		exit 1
+	fi
+
+	# TODO find a better way of providing a password. In interactive it is easy, otherwise? env?
+	if [[ $opt_password ]] && (( ${#opt_password} >= 8 )) ; then
+		set_password "$opt_key" "$opt_password"
+	fi
+
+	if sizeIsOk "$opt_size"; then
+		# size can not be smaller than before
+		currentData=$(show_info "$opt_key")
+		IFS=',' read -ra fields <<< "$currentData"
+		if (( ${fields[1]% *} < opt_size )); then
+			set_size "$opt_key" "$opt_size"
+		else
+			echo "Skipping adjutsment of size, must be larger than current (${fields[1]})." >&2
+		fi
+	fi
+
+	if [[ $opt_description ]]; then
+		set_description "$opt_key" "description" "$opt_description"
+	fi
+elif [[ $action == "delete" ]]; then
+	while getopts "u:c:" option; do
+		case "$option" in
+			u) opt_key=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	if [[ -z $opt_key ]]; then
+		echo "ABORT: Edit what archive? Missing -u ..." >&2
+		show_help
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ $opt_key != ${project}_* ]]; then
+	   echo "ABORT: The username starts with the project key and a underscore." >&2
+	   exit 1
+	fi
+
+	remove "$opt_key"
+elif [[ $action == "sizes" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) echo "$option" :: ; show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	echo "Eligable sizes in Gb, this list is validated during create and edit operations."
+
+	IFS=',' read -ra allowedSizes <<< "$(size_list)"
+	for size in "${allowedSizes[@]}"; do
+		echo "$size"
+	done
+else
+	show_help
+	exit 1
+fi
+
