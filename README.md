@@ -71,7 +71,6 @@ As a related challenge I want the dependency list to be small.
 * [ ] email
 * [x] filestorage
   * covered by `bin/file-storage`
-  * [ ] Add support for access lists.
   * [ ] Need to settle the output. Possibly add an interactive mode.
 * [ ] invoice
 * [ ] ip
@@ -124,8 +123,6 @@ to find these. Some of them overlap this list.
     settingsfile and be vocal about it. If the tool created the file
     it can also remove it.
 	Probably a good idea to check if executed as interactive or not....
-* [ ] file storage edit access lists
-  * need server list capabilities
 * [ ] bash completion support
 * [ ] do we need a INPUTRC for readline?
 * [ ] add fault tolerance and internals for curl-json

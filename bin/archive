@@ -100,7 +100,7 @@ remove () {
 	curl-json "{\"username\":\"$key\"}" archive/delete "$project:$apikey" | jq -r '.response.status.text'
 }
 
-# TODO extract to stand alone command.
+# TODO extract to stand alone command. Also in file-storage.
 inarray() { local q=$1 e; shift; (( $# )) && for e; do [[ $q = "$e" ]] && return; done; }
 
 sizeIsOk () {
