@@ -111,8 +111,9 @@ edit_instance () {
 	local key=$1
 	local description=$2
 
-	if [[ $description ]]; then
-		setDescription=",\"description\":\"$description\""
+	setDescription=",\"description\":\"$description\""
+	if [[ -z $description ]]; then
+		setDescription=",\"description\":null"
 	fi
 
 	curl-json "{\"instanceid\":\"$key\"$setDescription}" objectstorage/editinstance "$project:$apikey" | jq -r '.response.status.text'
