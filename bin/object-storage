@@ -1,0 +1,322 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+# TODO settle the output format. Possibly have a interactive readable
+#      format and use a comma separated standardized one for sink jobs
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+# objectstorage/instancedetails
+# objectstorage/listinstances
+# objectstorage/createinstance
+# objectstorage/editinstance
+# objectstorage/deleteinstance
+# objectstorage/createcredential
+# objectstorage/deletecredential
+
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options] [instance key]
+
+		list	  Show list of instances for current project
+		create	  Create new instance
+				  -d datacenter, eg falkenberg|stockholm
+				  (-i descriptive text)
+		info	  Show info about instance
+				  Instance key must be specified
+		edit	  Edit instance
+				  Instance key must be specified
+				  (-d descriptive text)
+		delete	  Delete instance
+				  Instance key must be specified
+		access	  Add credential
+				  Instance key must be specified
+		revoke	  Remove cedential
+				  Instance key must be specified
+		-c		  Applicable for all actions.
+				  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+instance_list () {
+	curl-json "{}" objectstorage/listinstances "$project:$apikey" | jq -r '.response.instances[] | [.id, .datacenter, .description] | @csv' | tr -d '"'
+	exit 0
+}
+
+create_instance () {
+	local datacenter=$1
+	local description=$2
+
+	if [[ -n $description ]]; then
+		setDescription=",\"description\":\"$description\""
+	fi
+
+	curl-json "{\"projectkey\":\"$project\", \"datacenter\":\"$datacenter\" $setDescription}" objectstorage/createinstance "$project:$apikey" | jq -r '.response.instance | [.id, .credentials[].accesskey, .credentials[].secretkey] | @csv' | tr -d '"'
+}
+
+delete_instance () {
+	local key=$1
+	if [[ -z $key ]]; then
+		echo "Missing instance key."
+		exit 1
+	fi
+
+	curl-json "{\"instanceid\":\"$key\"}" objectstorage/deleteinstance "$project:$apikey" | jq -r '.response.status.text'
+}
+
+instance_details () {
+	local key=$1
+	if [[ -z $key ]]; then
+		echo "Missing instance key."
+		exit 1
+	fi
+#	curl-json "{\"instanceid\":\"$key\"}" objectstorage/instancedetails "$project:$apikey" | jq -r '.response.instance | [.id, .datacenter, .description], [(.credentials[]) | [.id +": "+ .accesskey +" "+.description] | @csv] | @csv' | tr -d '"'
+	curl-json "{\"instanceid\":\"$key\"}" objectstorage/instancedetails "$project:$apikey" | jq -r '.response'
+}
+
+edit_instance () {
+	local key=$1
+	local description=$2
+
+	if [[ $description ]]; then
+		setDescription=",\"description\":\"$description\""
+	fi
+
+	curl-json "{\"instanceid\":\"$key\"$setDescription}" objectstorage/editinstance "$project:$apikey" | jq -r '.response.status.text'
+}
+
+add_credential () {
+	local key=$1
+	local description=$2
+
+	if [[ $description ]]; then
+		setDescription=",\"description\":\"$description\""
+	fi
+
+	curl-json "{\"instanceid\":\"$key\"$setDescription}" objectstorage/createcredential "$project:$apikey" | jq -r '.response.status.text'
+}
+
+revoke_credential () {
+	local key=$1
+	local credential=$2
+
+	curl-json "{\"instanceid\":\"$key\",\"credentialid\":\"$credential\"}" objectstorage/deletecredential "$project:$apikey" | jq -r '.response.status.text'
+}
+
+
+if [[ $action == "list" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	instance_list
+elif [[ $action == "create" ]]; then
+	while getopts "d:i:c:" option; do
+		case "$option" in
+			d) opt_datacenter=$OPTARG ;;
+			i) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	# TODO the datacenter field could be parsed via invalid requests
+	# to objectstorage/createinstance - read .response.status.text if
+	# .response.status.code is 400.
+	#
+	# text": "The datacenter field must be one of dc-sto1.",
+	#
+	# It will probably be a comma separated list or something in the
+	# future... this thing is applicable to file-storage as well and
+	# probably others.
+	if [[ -z $opt_datacenter ]]; then
+		echo "Datacenter missing."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	create_instance "$opt_datacenter" "${opt_description:-}"
+
+elif [[ $action == "info" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing instance key" >&2
+		exit 1
+	fi
+	key=$*
+
+	data=$(instance_details "$key")
+	# TODO make jq take care of this in one go
+	echo "$data" | jq -r '.instance | [.id,.datacenter,.description] | join(",")'
+	echo "Active credentials (id, access key, description):"
+	echo "$data" | jq -r '.instance.credentials[] | ["  "+.id+" "+.accesskey+" "+.description] | join(" ")'
+
+elif [[ $action == "edit" ]]; then
+	while getopts "d:c:" option; do
+		case "$option" in
+			d) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing volume key" >&2
+		exit 1
+	fi
+	key=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	edit_instance "$key" "$opt_description"
+
+elif [[ $action == "delete" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		# TODO is it called instance key or instance id?
+		echo "Error: Missing instance key" >&2
+		exit 1
+	fi
+	key=$*
+
+	delete_instance "$key"
+
+elif [[ $action == "add" ]]; then
+	while getopts "d:c:" option; do
+		case "$option" in
+			d) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing instance key" >&2
+		exit 1
+	fi
+	key=$*
+
+	add_credential "$key" "$opt_description"
+
+elif [[ $action == "revoke" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	credentialid=$1
+	shift
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing instance key" >&2
+		exit 1
+	fi
+	key=$*
+
+	revoke_credential "$key" "$credentialid"
+
+else
+	show_help
+	exit 1
+fi

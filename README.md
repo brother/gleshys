@@ -87,14 +87,8 @@ As a related challenge I want the dependency list to be small.
 * [ ] loadbalancer
 * [ ] network
 * [ ] networkadapter
-* [ ] objectstorage
-  * [ ] objectstorage/instancedetails
-  * [ ] objectstorage/listinstances
-  * [ ] objectstorage/createinstance
-  * [ ] objectstorage/editinstance
-  * [ ] objectstorage/deleteinstance
-  * [ ] objectstorage/createcredential
-  * [ ] objectstorage/deletecredential
+* [x] objectstorage
+  * covered by `bin/object-storage`
 * [ ] paymentcard
 * [ ] project
 * [ ] server
@@ -139,6 +133,9 @@ to find these. Some of them overlap this list.
       forces the user to never ever fail in the input. or forces the
       script to do input validation (and that require knowledge about
       acceptable inputs....which is hard)
+* [ ] Impove information extraction for object storage.
+* [ ] Does object storage call the identifier "key" or "id". Minor
+      clean up.
 
 # License
 
