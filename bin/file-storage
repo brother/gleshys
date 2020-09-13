@@ -260,7 +260,7 @@ elif [[ $action == "edit" ]]; then
 		# Will wipe the current list. Regardless of what it was.
 		accessList=null
 	else
-		servers=$(server list)
+		servers=$(server list -c "$settings")
 		IFS=',' read -ra proposed <<< "$opt_accesslist"
 		declare -a list
 		for server in "${proposed[@]}"; do
