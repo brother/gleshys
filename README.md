@@ -92,6 +92,7 @@ As a related challenge I want the dependency list to be small.
 * [ ] paymentcard
 * [ ] project
 * [ ] server
+  * [x] server/list
 * [ ] sshkey
 * [ ] transaction
 * [ ] user

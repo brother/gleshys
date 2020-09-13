@@ -1,0 +1,74 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options]
+
+		list	  Show list of archives for current project
+
+		-c		  Applicable for all actions.
+				  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+list_servers () {
+	curl-json "{}" server/list "$project:$apikey" | jq -r '.response.servers[] | [.serverid] | @csv' | tr -d '"'
+}
+
+if [[ $action == "list" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_servers
+
+else
+	show_help
+	exit 1
+fi
+
