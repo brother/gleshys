@@ -125,7 +125,7 @@ if [[ $action == "list" ]]; then
 					settings=$OPTARG
 				fi
 				;;
-			*) echo "$option" :: ; show_help ; exit 1 ;;
+			*) show_help ; exit 1 ;;
 		esac
 	done
 
@@ -146,7 +146,7 @@ elif [[ $action == "create" ]]; then
 					settings=$OPTARG
 				fi
 				;;
-			*) echo "$option" :: ; show_help ; exit 1 ;;
+			*) show_help ; exit 1 ;;
 		esac
 	done
 
@@ -187,7 +187,7 @@ elif [[ $action == "info" ]]; then
 					settings=$OPTARG
 				fi
 				;;
-			*) echo "$option" :: ; show_help ; exit 1 ;;
+			*) show_help ; exit 1 ;;
 		esac
 	done
 	shift $((${OPTIND:-1}-1))
@@ -220,7 +220,7 @@ elif [[ $action == "edit" ]]; then
 					settings=$OPTARG
 				fi
 				;;
-			*) echo "$option" :: ; show_help ; exit 1 ;;
+			*) show_help ; exit 1 ;;
 		esac
 	done
 	shift $((${OPTIND:-1}-1))
@@ -262,7 +262,7 @@ elif [[ $action == "delete" ]]; then
 					settings=$OPTARG
 				fi
 				;;
-			*) echo "$option" :: ; show_help ; exit 1 ;;
+			*) show_help ; exit 1 ;;
 		esac
 	done
 	shift $((${OPTIND:-1}-1))
@@ -290,7 +290,7 @@ elif [[ $action == "sizes" ]]; then
 					settings=$OPTARG
 				fi
 				;;
-			*) echo "$option" :: ; show_help ; exit 1 ;;
+			*) show_help ; exit 1 ;;
 		esac
 	done
 
