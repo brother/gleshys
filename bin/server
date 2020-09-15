@@ -16,7 +16,7 @@ show_help () {
 	cat >&2 <<-EOF
 	usage: $(basename "$0") <action> [options]
 
-		list	  Show list of archives for current project
+		list	  Show list of servers for current project
 
 		-c		  Applicable for all actions.
 				  Provide alternative settings file.
