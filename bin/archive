@@ -268,7 +268,7 @@ elif [[ $action == "delete" ]]; then
 	shift $((${OPTIND:-1}-1))
 
 	if [[ -z $opt_key ]]; then
-		echo "ABORT: Edit what archive? Missing -u ..." >&2
+		echo "ABORT: Remove what archive? Missing -u ..." >&2
 		show_help
 		exit 1
 	fi
