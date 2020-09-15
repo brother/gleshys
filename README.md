@@ -97,11 +97,10 @@ As a related challenge I want the dependency list to be small.
 * [ ] user
   * [!] user/login
   * [!] user/listorganizations
-* [ ] vpn
- * [ ] vpn/listusers
- * [ ] vpn/createuser
- * [ ] vpn/deleteuser
- * [ ] vpn/edituser
+* [x] vpn
+ * covered by `bin/vpn`
+ * Must revisit enable and disable feature. It wasn't working in
+   https://cloud.glesys.com either.
 
  * ! Are touched in some way during the process.
  * x These are considered 'done' by some definition. See further notes.
