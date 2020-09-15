@@ -14,7 +14,7 @@ instance.
 > export PATH="/home/brother/git/other/gleshys/bin:$PATH"
 
 
-## Persistant environment
+## Persistent environment
 
 The GleShYS settings file is found by validating in this particular
 order.
@@ -102,13 +102,13 @@ As a related challenge I want the dependency list to be small.
  * Must revisit enable and disable feature. It wasn't working in
    https://cloud.glesys.com either.
 
- * ! Are touched in some way during the process.
- * x These are considered 'done' by some definition. See further notes.
+* ! Are touched in some way during the process.
+* x These are considered 'done' by some definition. See further notes.
 
 ## TODO / Help needed
 
 This is stuff that has popped up during development. There are also
-som TODO comments sprinkled in the code filed, use `git grep '# TODO'`
+som TODO comments sprinkled in the code files, use `git grep '# TODO'`
 to find these. Some of them overlap this list.
 
 * [ ] Rename commands to a sane pattern. They are too generic.
