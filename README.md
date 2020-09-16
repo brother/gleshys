@@ -133,6 +133,7 @@ to find these. Some of them overlap this list.
 * [ ] Impove information extraction for object storage.
 * [ ] Does object storage call the identifier "key" or "id". Minor
       clean up.
+* [ ] Use shellspec?
 
 # License
 
