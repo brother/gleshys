@@ -1,0 +1,458 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options] [IP] [server|loadbalancer|ptr]
+
+		listpublic	  Show list of available IPs in the public pool
+					  -v 4|6
+					  -d datacenter
+					  -p platform
+		list 		  Show list of IPs assigned to current project
+					  (-v 4|6)
+					  (-d datacenter)
+					  (-p platform)
+					  (-u only show used IPs)
+					  Can use a server key or load balancer key as
+					  filter
+		reserve	  Assign a IP address to the current project
+				  Must provide the IP address.
+		release	  Release a previously assigned IP back to public pool
+				  Must provide the IP address.
+		info	  Show information about IP
+				  Must provide the IP address
+		assign	  Assign a IP to a server or load balancer
+				  Must provide the IP address and a key for either a
+				  server or a load balancer
+		cancel	  Decouple IP from server/load balancer
+				  (-r, if present also releases the address to public pool)
+				  Must provide the IP address.
+		ptr	  	  Manage PTR for IP
+				  Must provide the IP address
+				  If no PTR is specified it will reset to default
+
+		-c		  Applicable for all actions.
+				  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+ip_info () {
+	local ip=$1
+
+	curl-json "{\"ipaddress\":\"$ip\"}" ip/details "$project:$apikey" | jq -r '.response.details | [.ipaddress, .platform, .datacenter, .gateway, .netmask, .broadcast, .ptr, .nameservers[], .serverid] | @csv' | tr -d '"'
+}
+
+list_public () {
+	local version="\"ipversion\":\"$1\""
+	local datacenter="\"datacenter\":\"$2\""
+	local platform=\""platform\":\"$3\""
+
+	curl-json "{$version,$datacenter,$platform}" ip/listfree "$project:$apikey" | jq -r '.response.iplist.ipaddresses[]'
+}
+
+list_project () {
+	local version=$1
+	local datacenter=$2
+	local platform=$3
+	local inuse=$4
+	local key=$5
+
+	if [[ $version == 4 || $version == 6 ]]; then
+		json=("\"ipversion\":\"$version\"")
+	fi
+
+	if [[ $datacenter ]]; then
+		json+=("\"datacenter\":\"${datacenter^}\"")
+	fi
+
+	if [[ $platform ]]; then
+		json+=("\"platform\":\"$platform\"")
+	fi
+
+	if [[ $inuse == "true" ]]; then
+		json+=("\"used \":\"yes\"")
+	fi
+
+	if [[ $key ]]; then
+		# TODO verify that this works. Seems like a bug in upstream
+		#      where nothing is returned. Reported.
+		json+=("\"serverid\":\"$key\"")
+	fi
+	# implode and join string via commas.
+	jsonString=$(IFS=, ; echo "${json[*]}")
+
+	data=$(curl-json "{$jsonString}" ip/listown "$project:$apikey")
+	if [[ $(echo "$data" | jq -r '.response.status.code') != "200" ]]; then
+		   echo "$data" | jq -r '.response.status.text'
+	else
+		echo "$data" | jq -r '.response.iplist[] | [.ipaddress, .platform, .datacenter, .ptr, .serverid] | @csv' | tr -d '"'
+	fi
+}
+
+reserve_ip () {
+	local ip=$1
+
+	curl-json "{\"ipaddress\":\"$ip\"}" ip/take "$project:$apikey" | jq -r '.response.status.text'
+}
+
+release_ip () {
+	local ip=$1
+
+	curl-json "{\"ipaddress\":\"$ip\"}" ip/release "$project:$apikey" | jq -r '.response.status.text'
+}
+
+manage_ptr () {
+	local ip=$1
+	local ptr=$2
+
+	if [[ -z $ptr ]]; then
+		curl-json "{\"ipaddress\":\"$ip\"}" ip/resetptr "$project:$apikey" | jq -r '.response.status.text'
+	else
+		curl-json "{\"ipaddress\":\"$ip\",\"data\":\"$ptr\"}" ip/setptr "$project:$apikey" | jq -r '.response.status.text'
+	fi
+}
+
+assign_ip () {
+	local ip=$1
+	local target=${2,,}
+
+	if [[ $target == lb* ]]; then
+		target="\"loadbalancerid\":\"$target\""
+	else
+		target="\"serverid\":\"$target\""
+	fi
+
+	curl-json "{\"ipaddress\":\"$ip\",$target}" ip/add "$project:$apikey" | jq -r '.response.status.text'
+}
+
+decouple_ip () {
+	local ip=$1
+	local release=$2
+
+	if [[ $release == "true" ]]; then
+		release=",\"release\":\"yes\""
+	else
+		release=",\"release\":\"no\""
+	fi
+
+	curl-json "{\"ipaddress\":\"$ip\"$release}" ip/remove "$project:$apikey" | jq -r '.response.status.text'
+}
+
+if [[ $action == "info" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_ip=$*
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: Must specify IP address."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	ip_info "$opt_ip"
+elif [[ $action == "listpublic" ]]; then
+	while getopts "46v:d:p:c:" option; do
+		case "$option" in
+			v|4|6)
+				if [[ $OPTARG == 4 || $OPTARG == 6 ]]; then
+					opt_version=$OPTARG
+				elif [[ $option =~ [46] ]]; then
+					opt_version=$option
+				else
+					echo "ABORT: Invalid IP version, either 4 or 6."
+					exit 1
+				fi
+				;;
+			d) opt_datacenter=${OPTARG^} ;;
+			p) opt_platform=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	if [[ -z $opt_version ]]; then
+		echo "ABORT: IP Version must be specified."
+		exit 1
+	fi
+	if [[ -z $opt_datacenter ]]; then
+		echo "ABORT: Datacenter need to be specified."
+		exit 1
+	fi
+	if [[ -z $opt_platform ]]; then
+		echo "ABORT: Platform need to be specified."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_public "$opt_version" "$opt_datacenter" "$opt_platform"
+
+elif [[ $action == "list" ]]; then
+	while getopts "46v:d:p:uc:" option; do
+		case "$option" in
+			v|4|6)
+				if [[ $OPTARG == 4 || $OPTARG == 6 ]]; then
+					opt_version=$OPTARG
+				elif [[ $option =~ [46] ]]; then
+					opt_version=$option
+				else
+					echo "ABORT: Invalid IP version, either 4 or 6."
+					exit 1
+				fi
+				;;
+			d) opt_datacenter=${OPTARG^} ;;
+			p) opt_platform=$OPTARG ;;
+			u) opt_inuse=true ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_key=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_project "$opt_version" "$opt_datacenter" "$opt_platform" "${opt_inuse:-false}" "$opt_key"
+elif [[ $action == "reserve" ]]; then
+	while getopts "46v:d:p:uc:" option; do
+		case "$option" in
+			v|4|6)
+				if [[ $OPTARG == 4 || $OPTARG == 6 ]]; then
+					opt_version=$OPTARG
+				elif [[ $option =~ [46] ]]; then
+					opt_version=$option
+				else
+					echo "ABORT: Invalid IP version, either 4 or 6."
+					exit 1
+				fi
+				;;
+			d) opt_datacenter=${OPTARG^} ;;
+			p) opt_platform=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_ip=$*
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: The IP to reserve must be specified."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ $opt_version && $opt_platform && $opt_datacenter ]]; then
+		mapfile -t iplist < <(list_public "$opt_version" "$opt_datacenter" "$opt_platform")
+		if [[ $opt_ip == "any" ]]; then
+			opt_ip=${iplist[$RANDOM % ${#iplist[@]}]}
+		elif [[ $opt_ip =~ ^[0-9]+$ ]] && (( opt_ip > 0 )) && (( opt_ip <= ${#iplist[@]} )); then
+			opt_ip=${iplist[$((opt_ip-1))]}
+		else
+			show_help
+			exit 1
+		fi
+		echo "$opt_ip"
+	fi
+
+	reserve_ip "$opt_ip"
+
+elif [[ $action == "release" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_ip=$*
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: The IP to release must be specified."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	release_ip "$opt_ip"
+
+elif [[ $action == "ptr" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_ip=$1
+	shift
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: The IP to manage PTR must be specified."
+		exit 1
+	fi
+
+	opt_ptr=$*
+
+	if [[ $opt_ptr ]] && [[ $opt_ptr != *. ]]; then
+		echo "ABORT: PTR must end with period."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	manage_ptr "$opt_ip" "$opt_ptr"
+
+elif [[ $action == "assign" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_ip=$1
+	shift
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: Provide one IP address and one target system."
+		exit 1
+	fi
+
+	opt_target=$*
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: A target system must be specified, a server or a load balancer."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	# check if server is in project list?
+	#servers=$(server list -c "$settings")
+
+	# TODO add helper function in bin/server to check if server key is
+	# in the current project.
+	# bin/server has -c "$settings" kvm12345
+	# applicable to accesslist handling in file-storage as well.
+	#
+	# if ! server has -c "$settings" $serverKey; then
+	# echo "ABORT: $serverKey is not a known server key."
+	# fi
+
+	assign_ip "$opt_ip" "$opt_target"
+
+elif [[ $action == "decouple" ]]; then
+	while getopts "rc:" option; do
+		case "$option" in
+			r) opt_release=true ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_ip=$1
+	shift
+
+	if [[ -z $opt_ip ]]; then
+		echo "ABORT: Provide one IP address and one target system."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	decouple_ip "$opt_ip" "${opt_release:-false}"
+
+else
+	show_help
+	exit 1
+fi
+

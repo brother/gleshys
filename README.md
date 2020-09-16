@@ -73,16 +73,8 @@ As a related challenge I want the dependency list to be small.
   * covered by `bin/file-storage`
   * [ ] Need to settle the output. Possibly add an interactive mode.
 * [ ] invoice
-* [ ] ip
-  * [ ] ip/listfree
-  * [ ] ip/listown
-  * [ ] ip/details
-  * [ ] ip/take
-  * [ ] ip/release
-  * [ ] ip/add - need server or loadbalancer to work
-  * [ ] ip/remove - need server or loadbalancer to work
-  * [ ] ip/setptr
-  * [ ] ip/resetptr
+* [x] ip
+  * covered by `bin/gip`
 * [ ] loadbalancer
 * [ ] network
 * [ ] networkadapter
@@ -92,6 +84,8 @@ As a related challenge I want the dependency list to be small.
 * [ ] project
 * [ ] server
   * [x] server/list
+  * [ ] Add helper `server has key` to check if server exists in
+        project.
 * [ ] sshkey
 * [ ] transaction
 * [ ] user
