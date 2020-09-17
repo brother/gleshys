@@ -96,6 +96,7 @@ As a related challenge I want the dependency list to be small.
 * [ ] transaction
 * [ ] user
   * [!] user/login
+  * [!] user/logout
   * [!] user/listorganizations
 * [x] vpn
  * covered by `bin/vpn`
@@ -134,6 +135,7 @@ to find these. Some of them overlap this list.
 * [ ] Does object storage call the identifier "key" or "id". Minor
       clean up.
 * [ ] Use shellspec?
+* [ ] Propose to expose the session timeout timestamp in user/details
 
 # License
 

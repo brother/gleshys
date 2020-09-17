@@ -16,10 +16,13 @@ else
 	exit 1
 fi
 
-#username=$(cfg-get "$settingsfile" "username")
-#apikey=$(cfg-get "$settingsfile" "apikey")
-#curl-json "{\"username\": \"$username\",\"password\": \"$apikey\"}" "user/logout"
+username=$(cfg-get "$settingsfile" "username")
+apikey=$(cfg-get "$settingsfile" "apikey")
+if ! [[ $(curl-json "{}" user/logout "$username:$apikey" | jq -r '.response.status.text') == "OK" ]]; then
+	echo "INFO: Remote session not destroyed. Local settings wiped."
+fi
 
+cfg-set "$settingsfile" "username" ""
 cfg-set "$settingsfile" "apikey" ""
 cfg-set "$settingsfile" "organization" ""
 cfg-set "$settingsfile" "organizationname" ""
