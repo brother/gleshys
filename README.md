@@ -130,6 +130,10 @@ to find these. Some of them overlap this list.
       clean up.
 * [ ] Use shellspec?
 * [ ] Propose to expose the session timeout timestamp in user/details
+* [ ] Add a script to read all public endpoints and check if they are
+      present in this code. Loop response from api.glesys.com and ask
+      for all endpoints for each. and so on. A start is found in
+      `bin/gleshys-project-status`.
 
 # License
 

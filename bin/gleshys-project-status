@@ -1,0 +1,73 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+apikey=""
+project=""
+
+action=check
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+index () {
+	curl-json "{}" / "$project:$apikey" | jq -r '.response.modules[]'
+}
+
+functions () {
+	local endpoint=$1
+
+	curl-json "{}" "$endpoint" "$project:$apikey" | jq -r '.response.module.allowed_functions[].function'
+}
+
+if [[ $action == "check" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	for m in $(index); do
+		echo "> $m"
+		functions "$m"
+		# TODO something something git grep $m/$function if not found
+		#      mark as unknown... or something.
+		echo "----"
+	done
+
+else
+	show_help
+	exit 1
+fi
+
