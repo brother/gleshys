@@ -251,7 +251,7 @@ elif [[ $action == "edit" ]]; then
 	fi
 
 	if [[ $opt_description ]]; then
-		set_description "$opt_key" "description" "$opt_description"
+		set_description "$opt_key" "$opt_description"
 	fi
 elif [[ $action == "delete" ]]; then
 	while getopts "u:c:" option; do
