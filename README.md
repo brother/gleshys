@@ -76,7 +76,8 @@ As a related challenge I want the dependency list to be small.
 * [x] ip
   * covered by `bin/gip`
 * [ ] loadbalancer
-* [ ] network
+* [x] network
+  * covered by `bin/network`
 * [ ] networkadapter
 * [x] objectstorage
   * covered by `bin/object-storage`

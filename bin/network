@@ -1,0 +1,217 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options] [network key]
+
+		list	  Show list of networks for current project
+		create	  Create new network
+				  -d datacenter
+				  -i informational description
+		info	  Show info about network
+				  Must provide network key
+		edit	  Edit archive
+				  -i informational description
+				  Must provide network key
+		delete	  Delete network
+				  Must provide network key
+
+		-c		  Applicable for all actions.
+				  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+list_networks () {
+	# TODO hide the default networks? jq can do that with pattern
+	#      matching if needed. if .networkid is not 'internet-*'
+	#      something.
+	curl-json "{}" network/list "$project:$apikey" | jq -r '.response.networks[] | [.networkid, .datacenter, .description, .public] | @csv' | tr -d '"'
+}
+
+create_network () {
+	local datacenter=$1
+	local description=$2
+
+	curl-json "{\"datacenter\":\"$datacenter\",\"description\":\"$description\"}" network/create "$project:$apikey" | jq -r '.response.status.text'
+}
+
+edit_network () {
+	local key=$1
+	local description=$2
+
+	curl-json "{\"networkid\":\"$key\",\"description\":\"$description\"}" network/edit "$project:$apikey" | jq -r '.response.status.text'
+}
+
+show_info () {
+	local key=$1
+
+	curl-json "{\"networkid\":\"$key\"}" network/details "$project:$apikey" | jq -r '.response.network | [.networkid, .datacenter, .description, .public] | @csv' | tr -d '"'
+}
+
+remove_network () {
+	local key=$1
+
+	curl-json "{\"networkid\":\"$key\"}" network/delete "$project:$apikey" | jq -r '.response.status.text'
+}
+
+if [[ $action == "list" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_networks
+
+elif [[ $action == "create" ]] || [[ $action == "add" ]]; then
+	while getopts "d:i:c:" option; do
+		case "$option" in
+			d) opt_datacenter=${OPTARG^} ;;
+			i) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	create_network "$opt_datacenter" "${opt_description:-}"
+
+elif [[ $action == "info" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_key=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $opt_key ]]; then
+		echo "ABORT: Info about what?" >&2
+		show_help
+		exit 1
+	fi
+
+	show_info "$opt_key"
+
+elif [[ $action == "edit" ]]; then
+	while getopts "i:c:" option; do
+		case "$option" in
+			i) opt_description=$OPTARG ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_key=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $opt_key ]]; then
+		echo "ABORT: Edit what network? Must provide network key." >&2
+		show_help
+		exit 1
+	fi
+
+	if [[ -z $opt_description ]]; then
+		echo "ABORT: Must specify new information string." >&2
+		show_help
+		exit 1
+	fi
+
+	edit_network "$opt_key" "$opt_description"
+
+elif [[ $action == "delete" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	opt_key=$*
+
+	if [[ -z $opt_key ]]; then
+		echo "ABORT: Remove what network? Must provice network key." >&2
+		show_help
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	remove_network "$opt_key"
+
+else
+	show_help
+	exit 1
+fi
+
