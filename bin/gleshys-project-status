@@ -58,13 +58,19 @@ if [[ $action == "check" ]]; then
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
 
+	something=0
+	echo "List of endpoints to touch, omitted endpoints might need work still."
 	for m in $(index); do
-		echo "> $m"
-		functions "$m"
-		# TODO something something git grep $m/$function if not found
-		#      mark as unknown... or something.
-		echo "----"
+		for f in $(functions "$m"); do
+			if ! git grep -c "curl-json.*$m/$f" > /dev/null; then
+				echo "$m / $f"
+				something=1
+			fi
+		done
 	done
+	if [[ $something == 0 ]]; then
+		echo "No new endpoints found."
+	fi
 
 else
 	show_help

@@ -58,6 +58,9 @@ As a related challenge I want the dependency list to be small.
 
 ## Current status
 
+See also the TODO section below and the script
+`bin/gleshys-project-status`.
+
 * [ ] account
 * [ ] api
 * [x] archive
@@ -107,6 +110,11 @@ This is stuff that has popped up during development. There are also
 som TODO comments sprinkled in the code files, use `git grep '# TODO'`
 to find these. Some of them overlap this list.
 
+The script `bin/gleshys-project-status` will list all public endpoints
+that remain to implement in some capacity. Do however note that the
+list will not guarantee that omitted endpoints are fully implemented -
+it just tells you that they are in use in some capacity.
+
 * [ ] Rename commands to a sane pattern. They are too generic.
 * [ ] check depedencies
 * [ ] login
@@ -131,10 +139,6 @@ to find these. Some of them overlap this list.
       clean up.
 * [ ] Use shellspec?
 * [ ] Propose to expose the session timeout timestamp in user/details
-* [ ] Add a script to read all public endpoints and check if they are
-      present in this code. Loop response from api.glesys.com and ask
-      for all endpoints for each. and so on. A start is found in
-      `bin/gleshys-project-status`.
 
 # License
 
