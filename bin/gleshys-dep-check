@@ -66,6 +66,7 @@ if ! mktemp --version | grep -q -o "coreutils..8.32" -m 1; then
 		Core utils provides
 		 - dirname
 		 - mktemp
+		 - tr
 
 		Info:
         ---------
