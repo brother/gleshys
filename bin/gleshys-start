@@ -107,9 +107,10 @@ while :; do
 		break
 	fi
 done
-apikey=$(echo "$logindata" | jq ".response.login.apikey" | tr -d \")
+username=$(echo "$logindata" | jq -r ".response.login.username")
+apikey=$(echo "$logindata" | jq -r ".response.login.apikey")
 
-cfg-set "$settingsfile" "username" "$user"
+cfg-set "$settingsfile" "username" "$username"
 cfg-set "$settingsfile" "apikey" "$apikey"
 
 
