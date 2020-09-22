@@ -61,13 +61,14 @@ As a related challenge I want the dependency list to be small.
 See also the TODO section below and the script
 `bin/gleshys-project-status`.
 
-* [ ] account
 * [ ] api
+  * [ ] maintenance
+  * [ ] serviceinfo
+  * [ ] listfunctions
 * [x] archive
   * covered by `bin/archive`
   * [ ] cloak passwords, they are managed via -p command line flag and
         thus public for the machine.
-* [ ] country
 * [ ] customer
   * [!] customer/listprojects
 * [ ] domain
@@ -76,6 +77,7 @@ See also the TODO section below and the script
   * covered by `bin/file-storage`
   * [ ] Need to settle the output. Possibly add an interactive mode.
 * [ ] invoice
+  * [ ] list
 * [x] ip
   * covered by `bin/gip`
 * [ ] loadbalancer
@@ -84,13 +86,15 @@ See also the TODO section below and the script
 * [ ] networkadapter
 * [x] objectstorage
   * covered by `bin/object-storage`
-* [ ] paymentcard
 * [ ] project
+  * [ ] delete
+  * [ ] rename
 * [ ] server
   * [x] server/list
   * [ ] Add helper `server has key` to check if server exists in
         project.
 * [ ] sshkey
+  * This feature is obsolete.
 * [ ] transaction
 * [ ] user
   * [!] user/login
@@ -139,6 +143,7 @@ it just tells you that they are in use in some capacity.
       clean up.
 * [ ] Use shellspec?
 * [ ] Propose to expose the session timeout timestamp in user/details
+* [ ] Rewrite `bin/gleshys-project-status` to use `api/listfunctions`?
 
 # License
 
