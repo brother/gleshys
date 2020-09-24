@@ -14,9 +14,43 @@ shift
 
 show_help () {
 	cat >&2 <<-EOF
-	usage: $(basename "$0") <action> [options]
+	usage: $(basename "$0") <action> [options] [server key]
 
 		list	  Show list of servers for current project
+		create	  Create a new server
+				  -d datacenter
+				  -p platform
+				  -h hostname
+				  -t templatename
+				  -s disksize
+				  -m memorysize
+				  -z cpucores
+
+				  (-i description)
+				  (-4 ip) (Use "any" to assign random IP.)
+				  (-6 ip) (Use "any" to assign random IP.)
+				  (-w bandwidth, if omitted will pick lowest possible)
+				  (-k sshkeyids) # vmware/vz only?
+				  (-u sshkey) # vmware/vz only?
+				  (-r rootpassword) (Required for VM Ware and Open VZ, will prompt if omitted)
+				  (-u users) (Required for KVM. json string passthrough { "users": [{ "username": "cloud", "password": "correct-horse-battery-staple", "sshkeys": ["ssh-rsa AAAAB3Nz..."] }] })
+
+				  Not supported yet
+				  (-b backupschedules) (kvm { "backupschedules": [{ "frequency": "daily", "numberofimagestokeep": 7 }] } )
+				  (cloudconfig) (kvm)
+				  (cloudconfigparams) (kvm)
+
+		destroy	  Remove a server
+				  (-i Keep IP addresses assigned to project)
+						   Must have a server key to remove.
+
+		remove	  Alias for destroy
+
+		arguments	 List acceptable values to arguments
+					   Can use a server key as input, useful in
+					   case of edits.
+		templates	 List available templates for creating servers
+					 Can use platform name to restrict list.
 
 		-c		  Applicable for all actions.
 				  Provide alternative settings file.
@@ -46,8 +80,88 @@ exportSettings() {
 
 }
 
+# TODO extract to stand alone command. Also in archive.
+inarray() { local q=$1 e; shift; (( $# )) && for e; do [[ $q = "$e" ]] && return; done; }
+
+# TODO should probably be moved to a gleshys-demand-value thing in bin
+demand_value () {
+	local prompt="$1"
+	local silent="$2"
+	local REPLY
+	while :; do
+		if [[ $silent ]]; then
+			read -res -p "$prompt: "
+		else
+			read -re -p "$prompt: "
+		fi
+		if [[ ! $REPLY ]]; then
+			continue
+		else
+			echo "$REPLY"
+			return 0
+		fi
+	done
+}
+
+# TODO should probably be moved to a thing in bin
+ynprompt () {
+	local REPLY
+	while :; do
+		read -rep "$1 (y/N): "
+		case $REPLY in
+			y|Y) return 0 ;;
+			n|N|"") return 1 ;;
+			*) echo "Unknown reply." ; continue ;;
+		esac
+	done
+}
+
+required () {
+	local keyword=$1
+	echo "ABORT: $keyword must be specified."
+	exit 1
+}
+
 list_servers () {
 	curl-json "{}" server/list "$project:$apikey" | jq -r '.response.servers[] | [.serverid] | @csv' | tr -d '"'
+}
+
+destroy_server () {
+	local serverKey=$1
+	local keepip=${2:-no}
+	curl-json "{\"serverid\":\"$serverKey\", \"keepip\":\"$keepip\"}" server/destroy "$project:$apikey" | jq -r '.response.status.text'
+}
+
+list_templates () {
+	local platform=$1
+	local data
+
+	mapfile -t data < <(curl-json "{}" server/templates "$project:$apikey" | jq -r '.response.templates[][] | [.name, .platform, .operatingsystem, .minimumdisksize, .minimummemorysize] | @csv' | tr -d '"')
+
+	for t in "${data[@]}"; do
+		IFS=',' read -ra template <<< "$t"
+		if [[ $platform ]] && [[ ${template[1]} != "$platform" ]]; then
+			continue
+		fi
+		echo "$t"
+	done
+}
+
+list_arguments () {
+	local server=$1
+	local data
+
+	if [[ $server ]]; then
+		data=$(curl-json "{\"serverid\":\"$key\"}" server/allowedarguments "$project:$apikey")
+	else
+		data=$(curl-json "{}" server/allowedarguments "$project:$apikey")
+	fi
+
+	platformkeys=$(echo "$data" | jq -r '.response.argumentslist.platforms | keys | @csv' | tr -d '"')
+	IFS=',' read -ra platforms <<< "$platformkeys"
+	for k in "${platforms[@]}"; do
+		echo "$data" | jq -r ".response.argumentslist.platforms.$k"
+	done
 }
 
 if [[ $action == "list" ]]; then
@@ -66,6 +180,280 @@ if [[ $action == "list" ]]; then
 	exportSettings "$settings"
 
 	list_servers
+elif [[ $action == "templates" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	platform=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_templates "${platform:-}"
+
+elif [[ $action == "arguments" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_arguments "${key:-}"
+
+elif [[ $action == "create" ]]; then
+	while getopts "d:p:h:t:s:m:z:c:4:6:i:r:u:w:" option; do
+		case "$option" in
+			d) opt_datacenter=${OPTARG^} ;;
+			p)
+				if [[ $OPTARG == "kvm" ]]; then
+					# A known problem is that the platform value is
+					# not always shown upper case for KVM.
+					OPTARG=KVM
+				fi
+
+				opt_platform=$OPTARG
+				;;
+			h) opt_hostname=$OPTARG ;;
+			t) opt_template=$OPTARG ;;
+			s) opt_disksize=$OPTARG ;;
+			m) opt_memorysize=$OPTARG ;;
+			z) opt_cpucores=$OPTARG ;;
+
+			4) opt_ip4=$OPTARG ;;
+			6) opt_ip6=$OPTARG ;;
+			i) opt_description=$OPTARG ;;
+			r) opt_rootpassword=$OPTARG ;;
+			u) opt_user=$OPTARG ;;
+			w) opt_bandwidth=$OPTARG ;;
+
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	[[ -z $opt_datacenter ]] && required "Datacenter"
+	[[ -z $opt_platform ]] && required "Platform"
+	[[ -z $opt_hostname ]] && required "A hostname"
+	[[ -z $opt_template ]] && required "A template"
+
+	allowedArguments=$(curl-json "{}" server/allowedarguments "$project:$apikey" | jq -r '.response.argumentslist')
+
+	IFS=',' read -ra platforms <<< "$(echo "$allowedArguments" | jq -r ".platforms | keys | @csv" | tr -d '"')"
+	if ! inarray "$opt_platform" "${platforms[@]}"; then
+		echo "Invalid platform."
+		echo "Allowed values: ${platforms[*]}"
+		exit 1
+	fi
+
+	mapfile -t datacenters < <(echo "$allowedArguments" | jq -r ".platforms.$opt_platform.datacenter[] | [.value] | @csv" | tr -d '"')
+
+	if ! inarray "$opt_datacenter" "${datacenters[@]}"; then
+		echo "Invalid datacenter name."
+		echo "Allowed values: ${datacenters[*]}"
+		exit 1
+	fi
+
+	mapfile -t templates < <(list_templates "$opt_platform")
+	for line in "${templates[@]}"; do
+		IFS=',' read -ra template <<< "$line"
+		testName=${template[0]}
+		if [[ $testName == "$opt_template" ]]; then
+			# Check if this project is allowed to use the stated value
+			# of disk, memory, cpu and bandwidth.
+			mapfile -t allowedDisk < <(echo "$allowedArguments" | jq -r ".platforms.$opt_platform.disksize[] | [.value] | @csv" | tr -d '"')
+			if [[ $opt_disksize ]]; then
+				if ! inarray "$opt_disksize" "${allowedDisk[@]}"; then
+					echo "ABORT: Invalid amount of disk specified ($opt_disksize)."
+					echo "Allowed values: ${allowedDisk[*]}"
+					exit 1
+				fi
+			else
+				echo "INFO: No disk size provided, will use lowest allowed (${allowedDisk[0]})."
+				opt_disksize=${allowedDisk[0]}
+			fi
+
+			mapfile -t allowedMem < <(echo "$allowedArguments" | jq -r ".platforms.$opt_platform.memorysize[] | [.value] | @csv" | tr -d '"')
+			if [[ $opt_memorysize ]]; then
+				if ! inarray "$opt_memorysize" "${allowedMem[@]}"; then
+					echo "ABORT: Invalid memory size specified ($opt_memorysize)."
+					echo "Allowed values: ${allowedMem[*]}"
+					exit 1
+				fi
+			else
+				echo "INFO: No memory size provided, will use lowest allowed (${allowedMem[0]})."
+				opt_memorysize=${allowedMem[0]}
+			fi
+
+			mapfile -t allowedCpu < <(echo "$allowedArguments" | jq -r ".platforms.$opt_platform.cpucores[] | [.value] | @csv" | tr -d '"')
+			if [[ $opt_cpucores ]]; then
+				if ! inarray "$opt_cpucores" "${allowedCpu[@]}"; then
+					echo "ABORT: Invalid number of CPU cores specified."
+					echo "Allowed values: ${allowedCpu[*]}"
+					exit 1
+				fi
+			else
+				echo "INFO: Number of CPU cores not provided, vill use lowest allowed (${allowedCpu[0]})."
+				opt_cpucores=${allowedCpu[0]}
+			fi
+
+			mapfile -t allowedBandwidth < <(echo "$allowedArguments" | jq -r ".platforms.$opt_platform.bandwidth[] | [.value] | @csv" | tr -d '"')
+			if [[ $opt_bandwidth ]]; then
+				if ! inarray "$opt_bandwidth" "${allowedBandwidth[@]}"; then
+					echo "ABORT: Invalid bandwidth specified."
+					echo "Allowed values: ${allowedBandwidth[*]}"
+					exit 1
+				fi
+			else
+				echo "INFO: No bandwidth value provided, vill use lowest allowed (${allowedBandwidth[0]})."
+				opt_bandwidth=${allowedBandwidth[0]}
+			fi
+
+			templateName=$testName
+			break
+		fi
+	done
+
+	if [[ -z $templateName ]]; then
+		echo "Invalid template settings specified."
+		exit 1
+	fi
+
+# TODO Add ip check scaffolding and then validate the provided
+# IP. Until then, let the external API take care of this.
+#	if [[ $opt_ip4 ]]; then
+#		echo $opt_ip4
+#	fi
+
+# TODO Add ip check scaffolding and then validate the provided
+# IP. Until then, let the external API take care of this.
+#	if [[ $opt_ip6 ]]; then
+#		# check if supplied IP is eligable
+#	fi
+
+	# TODO how does that -u work? "username;key"? Assume it's a json string for now
+	if [[ $opt_platform == "KVM" ]] && [[ -z $opt_user ]]; then
+		echo "Provide username and public SSH key."
+		declare -a usersinfo
+		while :; do
+			username=$(demand_value "Username")
+			sshkey=$(demand_value "SSH Public Key")
+			# TODO must have password?
+			# pick a random and show it while finishing up.
+			# user1: randompassword
+			# user2: anotherpassword
+			usersinfo+=("{ \"username\": \"$username\", \"sshkeys\": [\"$sshkey\"] }")
+			if ! ynprompt "Add more users?"; then
+				users="\"users\": [$(IFS=, ; echo "${usersinfo[*]}")]"
+				break
+			fi
+		done
+	elif [[ $opt_user ]]; then
+		users=$opt_user
+	else
+		if [[ -z $opt_rootpassword ]]; then
+			opt_rootpassword=$(demand_value "Password for root user" silent)
+			# Avoid overwrite after silent read....
+			echo
+		fi
+		opt_rootpassword="\"rootpassword\":\"$opt_rootpassword\""
+	fi
+
+# Later
+#  (-b backupschedules) (kvm { "backupschedules": [{ "frequency": "daily", "numberofimagestokeep": 7 }] } )
+
+# Later
+#  (cloudconfig) (kvm)
+#  (cloudconfigparams) (kvm)
+
+# Later
+#  (-k sshkeyids) # vmware/vz only?
+#  (-u sshkey) # vmware/vz only? can never clash with KVM users, right?
+
+	declare json
+	json=$(cat <<-EOF
+			"datacenter":"$opt_datacenter",
+			"platform":"$opt_platform",
+			"hostname":"$opt_hostname",
+			"templatename":"$opt_template",
+			"disksize":"$opt_disksize",
+			"memorysize":"$opt_memorysize",
+			"cpucores":"$opt_cpucores",
+			"bandwidth":"$opt_bandwidth",
+			"description":"${opt_description:-}",
+			"ip":"${opt_ip4:-none}",
+			"ipv6":"${opt_ip6:-none}"
+		EOF
+		)
+
+	if [[ $opt_platform == "KVM" ]]; then
+		json+=",$users"
+	else
+		json+=",$opt_rootpassword"
+	fi
+
+	# TODO this pattern is repeated... fetching error code, and then
+	# showing the error and so on. Could be made some helper.
+	data=$(curl-json "{$json}" server/create "$project:$apikey")
+	if (( $(echo "$data" | jq -r '.response.status.code' ) == 200 )); then
+		echo "$data" | jq -r '.response.server | [.serverid,.state] | @csv' | tr -d '"'
+	else
+		echo "ABORT: Server not created."
+		echo "$data" | jq -r '.response.status.text'
+	fi
+
+elif [[ $action == "destroy" ]] || [[ $action == "remove" ]]; then
+	while getopts "ic:" option; do
+		case "$option" in
+			i) opt_keepip=yes ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$*
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify server key of server to remove."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	destroy_server "$key" "${opt_keepip:-no}"
 
 else
 	show_help

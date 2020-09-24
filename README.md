@@ -91,6 +91,13 @@ See also the TODO section below and the script
   * [ ] rename
 * [ ] server
   * [x] server/list
+  * [x] server/templates
+  * [x] server/create
+   * TODO. -u for kvm is not implemented, provide a correctly
+     formatted JSON string - or use the interactive mode by not using
+     the -u switch at all.
+  * [x] server/destroy
+  * [!] server/allowedarguments
   * [ ] Add helper `server has key` to check if server exists in
         project.
 * [ ] sshkey
@@ -144,6 +151,8 @@ it just tells you that they are in use in some capacity.
 * [ ] Use shellspec?
 * [ ] Propose to expose the session timeout timestamp in user/details
 * [ ] Rewrite `bin/gleshys-project-status` to use `api/listfunctions`?
+* [ ] `gip info 1.1.1.1` will return jq error if IP is not owned by
+      project.
 
 # License
 
