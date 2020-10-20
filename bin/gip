@@ -105,7 +105,7 @@ list_project () {
 	fi
 
 	if [[ $inuse == "true" ]]; then
-		json+=("\"used \":\"yes\"")
+		json+=("\"used\":\"yes\"")
 	fi
 
 	if [[ $key ]]; then
