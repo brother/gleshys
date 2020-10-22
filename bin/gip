@@ -25,8 +25,6 @@ show_help () {
 					  (-d datacenter)
 					  (-p platform)
 					  (-u only show used IPs)
-					  Can use a server key or load balancer key as
-					  filter
 		reserve	  Assign a IP address to the current project
 				  Must provide the IP address.
 		release	  Release a previously assigned IP back to public pool
@@ -90,7 +88,6 @@ list_project () {
 	local datacenter=$2
 	local platform=$3
 	local inuse=$4
-	local key=$5
 
 	if [[ $version == 4 || $version == 6 ]]; then
 		json=("\"ipversion\":\"$version\"")
@@ -108,11 +105,6 @@ list_project () {
 		json+=("\"used\":\"yes\"")
 	fi
 
-	if [[ $key ]]; then
-		# TODO verify that this works. Seems like a bug in upstream
-		#      where nothing is returned. Reported.
-		json+=("\"serverid\":\"$key\"")
-	fi
 	# implode and join string via commas.
 	jsonString=$(IFS=, ; echo "${json[*]}")
 
@@ -263,14 +255,11 @@ elif [[ $action == "list" ]]; then
 			*) show_help ; exit 1 ;;
 		esac
 	done
-	shift $((${OPTIND:-1}-1))
-
-	opt_key=$*
 
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
 
-	list_project "$opt_version" "$opt_datacenter" "$opt_platform" "${opt_inuse:-false}" "$opt_key"
+	list_project "$opt_version" "$opt_datacenter" "$opt_platform" "${opt_inuse:-false}"
 elif [[ $action == "reserve" ]]; then
 	while getopts "46v:d:p:uc:" option; do
 		case "$option" in
