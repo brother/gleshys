@@ -117,7 +117,9 @@ that remain to implement in some capacity. Do however note that the
 list will not guarantee that omitted endpoints are fully implemented -
 it just tells you that they are in use in some capacity.
 
-* [ ] Rename commands to a sane pattern. They are too generic.
+* [ ] Rename commands to a sane pattern. They are too generic.  have
+  all commands be gleshys-SOMETHING and gleshys as a binary find and
+  execute the correct one like git does.
 * [ ] check depedencies
 * [ ] login
   * a `session-restart` to check if the apikey provided is a permanent
