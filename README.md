@@ -118,7 +118,9 @@ See also the TODO section below and the script
   * [ ] server/resetpassword
   * [ ] server/resourceusage
   * [ ] server/start
-  * [ ] server/status
+  * [x] server/status
+    * TODO need formatting and input handling. Just dumps the json for
+      now.
   * [ ] server/stop
   * [ ] Add helper `server has key` to check if server exists in
         project.

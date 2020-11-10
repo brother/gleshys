@@ -46,6 +46,10 @@ show_help () {
 
 		remove	  Alias for destroy
 
+		status	  Show status values (TODO need work)
+				  Optional string with status types to show.
+				  Must have a server to show status about.
+
 		arguments	 List acceptable values to arguments
 					   Can use a server key as input, useful in
 					   case of edits.
@@ -163,6 +167,19 @@ list_arguments () {
 		echo "$data" | jq -r ".response.argumentslist.platforms.$k"
 	done
 }
+
+status () {
+	local serverKey=$1
+	local statusTypes=$2
+	local statusType=""
+	if [[ $statusTypes ]]; then
+		statusType=",\"statustype\":\"$statusTypes\""
+	fi
+
+	# TODO need to add some formatting for this.
+	curl-json "{\"serverid\":\"$serverKey\"${statusType:-}}" server/status "$project:$apikey" | jq -r #'.response.status.text'
+}
+
 
 if [[ $action == "list" ]]; then
 	while getopts "c:" option; do
@@ -454,6 +471,36 @@ elif [[ $action == "destroy" ]] || [[ $action == "remove" ]]; then
 	exportSettings "$settings"
 
 	destroy_server "$key" "${opt_keepip:-no}"
+
+elif [[ $action == "status" ]]; then
+	while getopts "ic:" option; do
+		case "$option" in
+			i) opt_keepip=yes ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify server key to show status info."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	shift
+	types=$*
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	status "$key" "${types:-}"
 
 else
 	show_help
