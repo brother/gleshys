@@ -413,7 +413,7 @@ elif [[ $action == "assign" ]]; then
 
 	assign_ip "$opt_ip" "$opt_target"
 
-elif [[ $action == "decouple" ]]; then
+elif [[ $action == "cancel" ]]; then
 	while getopts "rc:" option; do
 		case "$option" in
 			r) opt_release=true ;;
