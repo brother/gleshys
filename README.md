@@ -98,6 +98,28 @@ See also the TODO section below and the script
      the -u switch at all.
   * [x] server/destroy
   * [!] server/allowedarguments
+  * [ ] server/addiso
+  * [ ] server/backup
+  * [ ] server/clone
+  * [ ] server/console
+  * [ ] server/costs
+  * [ ] server/createfrombackup
+  * [ ] server/details
+  * [ ] server/edit
+  * [ ] server/estimatedcost
+  * [ ] server/limits
+  * [ ] server/listbackups
+  * [ ] server/listiso
+  * [ ] server/mountiso
+  * [ ] server/networkadapters
+  * [ ] server/previewcloudconfig
+  * [ ] server/reboot
+  * [ ] server/resetlimit
+  * [ ] server/resetpassword
+  * [ ] server/resourceusage
+  * [ ] server/start
+  * [ ] server/status
+  * [ ] server/stop
   * [ ] Add helper `server has key` to check if server exists in
         project.
 * [ ] sshkey
@@ -153,6 +175,8 @@ it just tells you that they are in use in some capacity.
 * [ ] Rewrite `bin/gleshys-project-status` to use `api/listfunctions`?
 * [ ] `gip info 1.1.1.1` will return jq error if IP is not owned by
       project.
+* [ ] The usage of `server/allowedarguments` is spread all over the
+      server script. Need an overhaul.
 
 # License
 
