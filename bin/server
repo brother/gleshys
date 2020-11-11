@@ -54,6 +54,11 @@ show_help () {
 				  (-b will boot to bios screen, not available on all platforms)
 				  Must have a server key provided.
 
+		stop	  (soft) Shutdown of a server
+				  Must have a server key provided.
+
+		shutdown  Alias for stop
+
 		arguments	 List acceptable values to arguments
 					   Can use a server key as input, useful in
 					   case of edits.
@@ -191,6 +196,12 @@ server_start() {
 	curl-json "{\"serverid\":\"$serverKey\",$biosStart}" server/start "$project:$apikey" | jq -r '.response.status.text'
 }
 
+server_stop() {
+	local serverKey=$1
+	local stopType=$2
+
+	curl-json "{\"serverid\":\"$serverKey\",\"type\":\"$stopType\"}" server/stop "$project:$apikey" | jq -r '.response.status.text'
+}
 
 if [[ $action == "list" ]]; then
 	while getopts "c:" option; do
@@ -539,6 +550,32 @@ elif [[ $action == "start" ]]; then
 	exportSettings "$settings"
 
 	server_start "$key" "${opt_bios:-no}"
+
+elif [[ $action == "stop" ]] || [[ $action == "shutdown" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify key of server to stop."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	server_stop "$key" "soft"
 
 else
 	show_help
