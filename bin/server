@@ -57,6 +57,9 @@ show_help () {
 		stop	  (soft) Shutdown of a server
 				  Must have a server key provided.
 
+		powreroff  (hard) Shutdown of a server
+				  Must have a server key provided.
+
 		shutdown  Alias for stop
 
 		arguments	 List acceptable values to arguments
@@ -576,6 +579,32 @@ elif [[ $action == "stop" ]] || [[ $action == "shutdown" ]]; then
 	exportSettings "$settings"
 
 	server_stop "$key" "soft"
+
+elif [[ $action == "poweroff" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify key of server to power off."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	server_stop "$key" "hard"
 
 else
 	show_help
