@@ -117,7 +117,7 @@ See also the TODO section below and the script
   * [ ] server/resetlimit
   * [ ] server/resetpassword
   * [ ] server/resourceusage
-  * [ ] server/start
+  * [x] server/start
   * [x] server/status
     * TODO need formatting and input handling. Just dumps the json for
       now.
