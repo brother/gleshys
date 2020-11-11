@@ -62,6 +62,9 @@ show_help () {
 
 		shutdown  Alias for stop
 
+		reboot	  Reboot server
+				  Must have a server key provided.
+
 		arguments	 List acceptable values to arguments
 					   Can use a server key as input, useful in
 					   case of edits.
@@ -605,6 +608,32 @@ elif [[ $action == "poweroff" ]]; then
 	exportSettings "$settings"
 
 	server_stop "$key" "hard"
+
+elif [[ $action == "reboot" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify key of server to reboot."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	server_stop "$key" "reboot"
 
 else
 	show_help

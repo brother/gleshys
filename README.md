@@ -114,6 +114,7 @@ See also the TODO section below and the script
   * [ ] server/networkadapters
   * [ ] server/previewcloudconfig
   * [ ] server/reboot
+   * Not applicable, covered by server/stop with type reboot.
   * [ ] server/resetlimit
   * [ ] server/resetpassword
   * [ ] server/resourceusage
@@ -121,7 +122,7 @@ See also the TODO section below and the script
   * [x] server/status
     * TODO need formatting and input handling. Just dumps the json for
       now.
-  * [ ] server/stop
+  * [x] server/stop
    * TODO support transactiontime to delay operation.
   * [ ] Add helper `server has key` to check if server exists in
         project.
