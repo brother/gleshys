@@ -14,6 +14,9 @@ instance.
 > export PATH="/home/brother/git/other/gleshys/bin:$PATH"
 
 
+The best starting point is the execute `bin/gleshys-start` as that
+will do a login and set default organization and project.
+
 ## Persistent environment
 
 The GleShYS settings file is found by validating in this particular
