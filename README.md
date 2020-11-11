@@ -184,6 +184,7 @@ it just tells you that they are in use in some capacity.
       project.
 * [ ] The usage of `server/allowedarguments` is spread all over the
       server script. Need an overhaul.
+* [ ] man pages for all commands.
 
 # License
 
