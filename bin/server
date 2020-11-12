@@ -69,14 +69,17 @@ show_help () {
 				  Must have a server key provided.
 
 		stop	  (soft) Shutdown of a server
+				  (-t timestamp - to delay the action until this time. Only works on VM Ware with vmware tools installed. Action will be instant on KVM for example.)
 				  Must have a server key provided.
 
 		powreroff  (hard) Shutdown of a server
+				  (-t timestamp - to delay the action until this time. Only works on VM Ware with vmware tools installed. Action will be instant on KVM for example.)
 				  Must have a server key provided.
 
 		shutdown  Alias for stop
 
 		reboot	  Reboot server
+				  (-t timestamp - to delay the action until this time. Only works on VM Ware with vmware tools installed. Action will be instant on KVM for example.)
 				  Must have a server key provided.
 
 		arguments	 List acceptable values to arguments
@@ -235,8 +238,14 @@ server_start() {
 server_stop() {
 	local serverKey=$1
 	local stopType=$2
+	local timestamp=$3
 
-	curl-json "{\"serverid\":\"$serverKey\",\"type\":\"$stopType\"}" server/stop "$project:$apikey" | jq -r '.response.status.text'
+	local transactionStart
+	if [[ $delay ]]; then
+		transactionStart=",\"transactionstarttime\":\"$delay\""
+	fi
+
+	curl-json "{\"serverid\":\"$serverKey\",\"type\":\"$stopType\"$transactionStart}" server/stop "$project:$apikey" | jq -r '.response.status.text'
 }
 
 vmware_enable_backup() {
@@ -618,8 +627,9 @@ elif [[ $action == "start" ]]; then
 	server_start "$key" "${opt_bios:-no}"
 
 elif [[ $action == "stop" ]] || [[ $action == "shutdown" ]]; then
-	while getopts "c:" option; do
+	while getopts "t:c:" option; do
 		case "$option" in
+			t) opt_time=$OPTARG ;;
 			c)
 				if [[ -f $OPTARG ]]; then
 					settings=$OPTARG
@@ -641,11 +651,12 @@ elif [[ $action == "stop" ]] || [[ $action == "shutdown" ]]; then
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
 
-	server_stop "$key" "soft"
+	server_stop "$key" "soft" "${opt_time:-}"
 
 elif [[ $action == "poweroff" ]]; then
-	while getopts "c:" option; do
+	while getopts "t:c:" option; do
 		case "$option" in
+			t) opt_time=$OPTARG ;;
 			c)
 				if [[ -f $OPTARG ]]; then
 					settings=$OPTARG
@@ -667,11 +678,12 @@ elif [[ $action == "poweroff" ]]; then
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
 
-	server_stop "$key" "hard"
+	server_stop "$key" "hard" "${opt_time:-}"
 
 elif [[ $action == "reboot" ]]; then
-	while getopts "c:" option; do
+	while getopts "t:c:" option; do
 		case "$option" in
+			t) opt_time=$OPTARG ;;
 			c)
 				if [[ -f $OPTARG ]]; then
 					settings=$OPTARG
@@ -693,7 +705,7 @@ elif [[ $action == "reboot" ]]; then
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
 
-	server_stop "$key" "reboot"
+	server_stop "$key" "reboot" "${opt_time:-}"
 
 elif [[ $action == "info" ]]; then
 	while getopts "isc:" option; do

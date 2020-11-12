@@ -112,7 +112,6 @@ See also the TODO section below and the script
     * TODO need formatting and input handling. Just dumps the json for
       now.
   * [x] server/stop
-   * TODO support transactiontime to delay operation.
   * [ ] server/clone
   * [ ] server/edit
   * [ ] server/costs
