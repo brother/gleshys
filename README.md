@@ -101,35 +101,37 @@ See also the TODO section below and the script
      the -u switch at all.
   * [x] server/destroy
   * [!] server/allowedarguments
-  * [ ] server/addiso
   * [x] server/backup
    * Revisit this when server/edit is done/can handle backups for KVM.
-  * [ ] server/clone
   * [x] server/console
-  * [ ] server/costs
-  * [ ] server/createfrombackup
   * [x] server/details
-  * [ ] server/edit
-  * [ ] server/estimatedcost
-  * [ ] server/limits
-  * [ ] server/listbackups
-  * [ ] server/listiso
-  * [ ] server/mountiso
-  * [ ] server/networkadapters
-  * [ ] server/previewcloudconfig
   * [ ] server/reboot
    * Not applicable, covered by server/stop with type reboot.
-  * [ ] server/resetlimit
-  * [ ] server/resetpassword
-  * [ ] server/resourceusage
   * [x] server/start
   * [x] server/status
     * TODO need formatting and input handling. Just dumps the json for
       now.
   * [x] server/stop
    * TODO support transactiontime to delay operation.
+  * [ ] server/clone
+  * [ ] server/edit
+  * [ ] server/costs
+  * [ ] server/estimatedcost
+  * [ ] server/createfrombackup
+  * [ ] server/listbackups
+  * [ ] server/addiso
+  * [ ] server/listiso
+  * [ ] server/mountiso
+  * [ ] server/networkadapters
+  * [ ] server/previewcloudconfig
+  * [ ] server/resetpassword
+  * [ ] server/resourceusage
   * [ ] Add helper `server has key` to check if server exists in
         project.
+  * [ ] server/limits
+    * Only for OpenVZ.
+  * [ ] server/resetlimit
+    * Only for OpenVZ.
 * [ ] sshkey
   * This feature is obsolete.
 * [ ] transaction
