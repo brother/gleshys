@@ -102,7 +102,8 @@ See also the TODO section below and the script
   * [x] server/destroy
   * [!] server/allowedarguments
   * [ ] server/addiso
-  * [ ] server/backup
+  * [x] server/backup
+   * Revisit this when server/edit is done/can handle backups for KVM.
   * [ ] server/clone
   * [ ] server/console
   * [ ] server/costs

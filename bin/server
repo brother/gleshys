@@ -46,6 +46,11 @@ show_help () {
 				  (cloudconfig) (kvm)
 				  (cloudconfigparams) (kvm)
 
+		backup    Enable or disable backup for VM Ware servers
+				  -y to enable
+				  -n to disable
+					   Must have a server key to add backups for.
+
 		destroy	  Remove a server
 				  (-i Keep IP addresses assigned to project)
 						   Must have a server key to remove.
@@ -214,7 +219,7 @@ server_details() {
 
 	local data
 	data=$(curl-json "{\"serverid\":\"$serverKey\"$includeState}" server/details "$project:$apikey")
-	echo "$data" | jq -r ".response.server | [.serverid, .hostname, .platform, .datacenter, .memorysize, .disksize, .billing.total, .templatename$stateFields] | @csv"
+	echo "$data" | jq -r ".response.server | [.serverid, .hostname, .platform, .datacenter, .backup.enabled, .backup.type, .memorysize, .disksize, .billing.total, .templatename$stateFields] | @csv"
 }
 
 server_start() {
@@ -229,6 +234,18 @@ server_stop() {
 	local stopType=$2
 
 	curl-json "{\"serverid\":\"$serverKey\",\"type\":\"$stopType\"}" server/stop "$project:$apikey" | jq -r '.response.status.text'
+}
+
+vmware_enable_backup() {
+	local serverKey=$1
+
+	curl-json "{\"serverid\":\"$serverKey\", \"enabled\":\"yes\"}" server/backup "$project:$apikey" | jq -r '.response.status.text'
+}
+
+vmware_disable_backup() {
+	local serverKey=$1
+
+	curl-json "{\"serverid\":\"$serverKey\", \"enabled\":\"no\"}" server/backup "$project:$apikey" | jq -r '.response.status.text'
 }
 
 if [[ $action == "list" ]]; then
@@ -687,6 +704,42 @@ elif [[ $action == "info" ]]; then
 	if [[ $opt_ipinfo == "true" ]]; then
 		gip list -c "$settings" "$key"
 	fi
+
+elif [[ $action == "backup" ]]; then
+	while getopts "ync:" option; do
+		case "$option" in
+			y) opt_backup=yes ;;
+			n) opt_backup=no ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	if [[ -z $opt_backup ]]; then
+		echo "ABORT: Must specify to enable (-y) or disable (-n) backup."
+		exit 1
+	fi
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify key of server to show information about."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	case "${opt_backup:-no}" in
+		yes) vmware_enable_backup "$key" ;;
+		no) vmware_disable_backup "$key" ;;
+	esac
 
 else
 	show_help
