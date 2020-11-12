@@ -107,7 +107,7 @@ See also the TODO section below and the script
   * [ ] server/console
   * [ ] server/costs
   * [ ] server/createfrombackup
-  * [ ] server/details
+  * [x] server/details
   * [ ] server/edit
   * [ ] server/estimatedcost
   * [ ] server/limits

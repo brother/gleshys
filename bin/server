@@ -17,6 +17,12 @@ show_help () {
 	usage: $(basename "$0") <action> [options] [server key]
 
 		list	  Show list of servers for current project
+
+		info	  Show information about server
+				  (-i - to include IP information)
+				  (-s - to include state information, running, locked and status)
+				  Must have a server key provided.
+
 		create	  Create a new server
 				  -d datacenter
 				  -p platform
@@ -193,6 +199,22 @@ status () {
 
 	# TODO need to add some formatting for this.
 	curl-json "{\"serverid\":\"$serverKey\"${statusType:-}}" server/status "$project:$apikey" | jq -r #'.response.status.text'
+}
+
+server_details() {
+	local serverKey=$1
+	local fetchState=$2
+	local includeState=", \"includestate\":\"no\""
+
+	local stateFields
+	if [[ $fetchState == "yes" ]]; then
+		includeState=", \"includestate\":\"yes\""
+		stateFields=", .islocked, .isrunning, .status"
+	fi
+
+	local data
+	data=$(curl-json "{\"serverid\":\"$serverKey\"$includeState}" server/details "$project:$apikey")
+	echo "$data" | jq -r ".response.server | [.serverid, .hostname, .platform, .datacenter, .memorysize, .disksize, .billing.total, .templatename$stateFields] | @csv"
 }
 
 server_start() {
@@ -634,6 +656,37 @@ elif [[ $action == "reboot" ]]; then
 	exportSettings "$settings"
 
 	server_stop "$key" "reboot"
+
+elif [[ $action == "info" ]]; then
+	while getopts "isc:" option; do
+		case "$option" in
+			i) opt_ipinfo="true" ;;
+			s) opt_statedata="yes" ;;
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify key of server to show information about."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	server_details "$key" "${opt_statedata:-no}"
+	if [[ $opt_ipinfo == "true" ]]; then
+		gip list -c "$settings" "$key"
+	fi
 
 else
 	show_help
