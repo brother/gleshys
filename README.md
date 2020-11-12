@@ -105,7 +105,7 @@ See also the TODO section below and the script
   * [x] server/backup
    * Revisit this when server/edit is done/can handle backups for KVM.
   * [ ] server/clone
-  * [ ] server/console
+  * [x] server/console
   * [ ] server/costs
   * [ ] server/createfrombackup
   * [x] server/details

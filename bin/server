@@ -23,6 +23,9 @@ show_help () {
 				  (-s - to include state information, running, locked and status)
 				  Must have a server key provided.
 
+		console	  Fetch URL for web console.
+				  Must have a server key provided.
+
 		create	  Create a new server
 				  -d datacenter
 				  -p platform
@@ -246,6 +249,24 @@ vmware_disable_backup() {
 	local serverKey=$1
 
 	curl-json "{\"serverid\":\"$serverKey\", \"enabled\":\"no\"}" server/backup "$project:$apikey" | jq -r '.response.status.text'
+}
+
+server_console() {
+	local serverKey=$1
+
+	local data
+	data=$(curl-json "{\"serverid\":\"$serverKey\"}" server/console "$project:$apikey")
+	status=($(echo "$data" | jq -r '.response.status.code, .response.status.text'))
+	if  [[ ${status[0]} != 200 ]]; then
+		unset status[0]
+		echo "ERROR: API returned error with message:"
+		echo "  ${status[@]}"
+		exit 1
+	fi
+
+	# TODO will other servers return host and port and so on? VM Ware and KVM seem to not do it... vz?
+	#echo "$data" | jq -r '.response.console | [.host, .port, .password, .protocol] | @csv' | tr -d '"'
+	echo "$data" | jq -r '.response.console.url'
 }
 
 if [[ $action == "list" ]]; then
@@ -740,6 +761,32 @@ elif [[ $action == "backup" ]]; then
 		yes) vmware_enable_backup "$key" ;;
 		no) vmware_disable_backup "$key" ;;
 	esac
+
+elif [[ $action == "console" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	shift $((${OPTIND:-1}-1))
+	key=$1
+
+	if [[ -z $key ]]; then
+		echo "ABORT: Must specify key of server to show information about."
+		echo "eg. wps123456, kvm12345..."
+		exit 1
+	fi
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	server_console "$key"
 
 else
 	show_help
