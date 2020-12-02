@@ -69,7 +69,7 @@ See also the TODO section below and the script
   * [ ] serviceinfo
   * [ ] listfunctions
 * [x] archive
-  * covered by `bin/archive`
+  * covered by `bin/gleshys-archive`
   * [ ] cloak passwords, they are managed via -p command line flag and
         thus public for the machine.
 * [ ] customer
@@ -77,18 +77,18 @@ See also the TODO section below and the script
 * [ ] domain
 * [ ] email
 * [x] filestorage
-  * covered by `bin/file-storage`
+  * covered by `bin/gleshys-file-storage`
   * [ ] Need to settle the output. Possibly add an interactive mode.
 * [ ] invoice
   * [ ] list
 * [x] ip
-  * covered by `bin/gip`
+  * covered by `bin/gleshys-ip`
 * [ ] loadbalancer
 * [x] network
-  * covered by `bin/network`
+  * covered by `bin/gleshys-network`
 * [ ] networkadapter
 * [x] objectstorage
-  * covered by `bin/object-storage`
+  * covered by `bin/gleshys-object-storage`
 * [ ] project
   * [ ] delete
   * [ ] rename
@@ -125,7 +125,7 @@ See also the TODO section below and the script
   * [ ] server/previewcloudconfig
   * [ ] server/resetpassword
   * [ ] server/resourceusage
-  * [ ] Add helper `server has key` to check if server exists in
+  * [ ] Add helper `gleshys server has key` to check if server exists in
         project.
   * [ ] server/limits
     * Only for OpenVZ.
@@ -139,7 +139,7 @@ See also the TODO section below and the script
   * [!] user/logout
   * [!] user/listorganizations
 * [x] vpn
- * covered by `bin/vpn`
+ * covered by `bin/gleshys-vpn`
 
 * ! Are touched in some way during the process.
 * x These are considered 'done' by some definition. See further notes.
@@ -155,7 +155,7 @@ that remain to implement in some capacity. Do however note that the
 list will not guarantee that omitted endpoints are fully implemented -
 it just tells you that they are in use in some capacity.
 
-* [ ] Rename commands to a sane pattern. They are too generic.  have
+* [x] Rename commands to a sane pattern. They are too generic.  have
   all commands be gleshys-SOMETHING and gleshys as a binary find and
   execute the correct one like git does.
 * [ ] check depedencies
@@ -182,7 +182,7 @@ it just tells you that they are in use in some capacity.
 * [ ] Use shellspec?
 * [ ] Propose to expose the session timeout timestamp in user/details
 * [ ] Rewrite `bin/gleshys-project-status` to use `api/listfunctions`?
-* [ ] `gip info 1.1.1.1` will return jq error if IP is not owned by
+* [ ] `gleshys ip info 1.1.1.1` will return jq error if IP is not owned by
       project.
 * [ ] The usage of `server/allowedarguments` is spread all over the
       server script. Need an overhaul.

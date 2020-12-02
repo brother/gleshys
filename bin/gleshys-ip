@@ -400,7 +400,7 @@ elif [[ $action == "assign" ]]; then
 	exportSettings "$settings"
 
 	# check if server is in project list?
-	#servers=$(server list -c "$settings")
+	#servers=$(gleshys-server list -c "$settings")
 
 	# TODO add helper function in bin/server to check if server key is
 	# in the current project.

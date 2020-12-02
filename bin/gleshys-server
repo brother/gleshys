@@ -735,7 +735,7 @@ elif [[ $action == "info" ]]; then
 
 	server_details "$key" "${opt_statedata:-no}"
 	if [[ $opt_ipinfo == "true" ]]; then
-		gip list -c "$settings" "$key"
+		gleshys-ip list -c "$settings" "$key"
 	fi
 
 elif [[ $action == "backup" ]]; then
