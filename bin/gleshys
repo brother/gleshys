@@ -1,0 +1,35 @@
+#!/bin/bash
+
+usage() {
+	echo "USAGE: ${0##*/} command options..."
+	echo "Command not found."
+	exit 2
+}
+
+if [[ -z $1 ]]; then
+	usage
+fi
+
+found=false
+command=gleshys-$1
+shift
+IFS=: read -ra pathDirs <<< "$PATH"
+for d in "${pathDirs[@]}"; do
+	if ! [[ -d $d ]]; then
+		continue
+	fi
+	for file in "$d"/*; do
+		if [[ -x $file ]] && [[ $file == $d/$command ]]; then
+			command=$file
+			found=true
+			break 2
+		fi
+	done
+done
+
+if [[ $found == "false" ]]; then
+	usage
+	exit 1
+fi
+
+$command "$@"
