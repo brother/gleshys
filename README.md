@@ -99,6 +99,8 @@ See also the TODO section below and the script
 * [ ] networkadapter
 * [x] objectstorage
   * covered by `bin/gleshys-object-storage`
+  [ ] initial bucket need to be addressed, it's not returned as
+      response to creteinstance statement.
 * [ ] project
   * [ ] delete
   * [ ] rename
