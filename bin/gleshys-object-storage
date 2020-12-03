@@ -30,8 +30,9 @@ show_help () {
 
 		list	  Show list of instances for current project
 		create	  Create new instance
-				  -d datacenter, eg falkenberg|stockholm
+				  -d datacenter
 				  (-i descriptive text)
+				  (-b, if present an initial bucket will be created)
 		info	  Show info about instance
 				  Instance key must be specified
 		edit	  Edit instance
@@ -79,12 +80,18 @@ instance_list () {
 create_instance () {
 	local datacenter=$1
 	local description=$2
+	local bucket=${3:-false}
 
 	if [[ -n $description ]]; then
 		setDescription=",\"description\":\"$description\""
 	fi
 
-	curl-json "{\"projectkey\":\"$project\", \"datacenter\":\"$datacenter\" $setDescription}" objectstorage/createinstance "$project:$apikey" | jq -r '.response.instance | [.id, .credentials[].accesskey, .credentials[].secretkey] | @csv' | tr -d '"'
+	if [[ $bucket ]]; then
+		# TODO this should probablt be a yes/no? WFM.
+		setBucket=",\"createinitialbucket\":$bucket"
+	fi
+
+	curl-json "{\"projectkey\":\"$project\", \"datacenter\":\"$datacenter\" $setDescription $setBucket}" objectstorage/createinstance "$project:$apikey" | jq -r '.response.instance | [.id, .credentials[].accesskey, .credentials[].secretkey, .initialbucket] | @csv' | tr -d '"'
 }
 
 delete_instance () {
@@ -155,9 +162,10 @@ if [[ $action == "list" ]]; then
 
 	instance_list
 elif [[ $action == "create" ]]; then
-	while getopts "d:i:c:" option; do
+	while getopts "bd:i:c:" option; do
 		case "$option" in
-			d) opt_datacenter=$OPTARG ;;
+			b) opt_bucket=true ;;
+			d) opt_datacenter=${OPTARG,,} ;;
 			i) opt_description=$OPTARG ;;
 			c)
 				if [[ -f $OPTARG ]]; then
@@ -185,7 +193,7 @@ elif [[ $action == "create" ]]; then
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
 
-	create_instance "$opt_datacenter" "${opt_description:-}"
+	create_instance "$opt_datacenter" "${opt_description:-}" "${opt_bucket:-false}"
 
 elif [[ $action == "info" ]]; then
 	while getopts "c:" option; do
