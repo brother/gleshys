@@ -2,20 +2,23 @@
 
 Welcome to the new^wold world.
 
-# tldr;
+# tldr; aka Quick Start
 
-TODO: The quick start gudie
-
-Set your PATH to include the bin directory of this repo as the first
+Set your PATH to include the `bin` directory of this repo as the first
 instance.
 
 > brother ~$ grep brother.*PATH .bashrc
 
 > export PATH="/home/brother/git/other/gleshys/bin:$PATH"
 
+Ad then execute `gleshys start` to login.  If you do not provide any
+flags the login will prompt you to pick a organization and project.
 
-The best starting point is the execute `bin/gleshys-start` as that
-will do a login and set default organization and project.
+You can logout by executing `gleshys session-destroy`, this will also
+qipe on disk information about username, api access key, active
+organization and active project. If you do not worry about logging out
+the GleSYS API still has a timeout that will invalidate your access
+key.
 
 ## Persistent environment
 
@@ -29,6 +32,13 @@ order.
    successful login will keep the apikey stored in this file. Use
    `gleshys-session-destroy` to invalidate the key and remove the
    settings file.
+
+To avoid having to login a API key can be obtained via the web
+interface of at https://cloud.glesys.com, this key has no timeout and
+as long as the config file is provided (or you use the standard file)
+the commands will just continue to work. Uee with care.
+`gleshys session-destroy` will wipe all these settings regardless of
+what login mechanism was used.
 
 # What's up?
 
