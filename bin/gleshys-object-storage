@@ -273,7 +273,7 @@ elif [[ $action == "delete" ]]; then
 
 	delete_instance "$key"
 
-elif [[ $action == "add" ]]; then
+elif [[ $action == "access" ]]; then
 	while getopts "d:c:" option; do
 		case "$option" in
 			d) opt_description=$OPTARG ;;
