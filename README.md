@@ -196,6 +196,7 @@ it just tells you that they are in use in some capacity.
 * [ ] The usage of `server/allowedarguments` is spread all over the
       server script. Need an overhaul.
 * [ ] man pages for all commands.
+* [ ] Add `--max-time` to `curl-json`?
 
 # License
 
