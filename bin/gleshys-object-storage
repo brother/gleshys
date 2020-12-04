@@ -90,7 +90,8 @@ create_instance () {
 		# TODO this should probablt be a yes/no? WFM.
 		setBucket=",\"createinitialbucket\":$bucket"
 	fi
-
+	# TODO The initial bucket is not available in the create response,
+	# you need to fetch instancedetails (info) to see that value.
 	curl-json "{\"projectkey\":\"$project\", \"datacenter\":\"$datacenter\" $setDescription $setBucket}" objectstorage/createinstance "$project:$apikey" | jq -r '.response.instance | [.id, .credentials[].accesskey, .credentials[].secretkey, .initialbucket] | @csv' | tr -d '"'
 }
 
@@ -219,7 +220,7 @@ elif [[ $action == "info" ]]; then
 
 	data=$(instance_details "$key")
 	# TODO make jq take care of this in one go
-	echo "$data" | jq -r '.instance | [.id,.datacenter,.description] | join(",")'
+	echo "$data" | jq -r '.instance | [.id,.datacenter,.description,.initialbucket] | join(",")'
 	echo "Active credentials (id, access key, description):"
 	echo "$data" | jq -r '.instance.credentials[] | ["  "+.id+" "+.accesskey+" "+.description] | join(" ")'
 
