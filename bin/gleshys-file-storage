@@ -33,6 +33,9 @@ show_help () {
 					  (-a, yes/no bool)
 					  (-l list of servers with access, set to 'null'
 					       to remove all servers)
+		grant		  Add provided server to access list for volume
+		revoke		  Remove provided server key from access list of volume
+					  'revoke all FSKEY' wipes access list
 		delete		  Delete volume
 					  Volume key must be specified
 		plans		  List available storage plans
@@ -132,6 +135,10 @@ edit () {
 	local plan=$3
 	local accessList=$4
 
+	if [[ -n $autopromotion ]]; then
+		setAutoPromotion=",\"autopromotion\":\"$autopromotion\""
+	fi
+
 	if [[ -n $plan ]]; then
 		setPlan=",\"planid\":\"$plan\""
 	fi
@@ -144,8 +151,37 @@ edit () {
 		fi
 	fi
 
-	curl-json "{\"volumeid\":\"$key\", \"autopromotion\":\"$autopromotion\" $setPlan $setAccessList}" filestorage/editvolume "$project:$apikey" | jq -r '.response | [.status.text, .volume.volumeid, .volume.status, .volume.plan.quota, .volume.autopromotion, .volume.accesslist[]] | @csv' | tr -d '"'
+	curl-json "{\"volumeid\":\"$key\" $setAutoPromotion $setPlan $setAccessList}" filestorage/editvolume "$project:$apikey" | jq -r '.response | [.status.text, .volume.volumeid, .volume.status, .volume.plan.quota, .volume.autopromotion, .volume.accesslist[]] | @csv' | tr -d '"'
 
+}
+
+grant_access () {
+	local newServers=$1
+	local key=$2
+
+	edit "$key" "" "" "$newServers"
+}
+
+revoke_access () {
+	local server=$1
+	local key=$2
+	local accessList
+
+	mapfile -t currectAccess < <(curl-json "{\"volumeid\":\"$key\"}" filestorage/volumedetails "$project:$apikey" | jq -r '.response.volume.accesslist[]')
+
+	declare -a keep
+	for current in ${currectAccess[*]}; do
+		if [[ $current != "$server" ]]; then
+			keep+=("$current")
+		fi
+	done
+
+	OFS=$IFS
+	IFS=','
+	accessList="${keep[*]}"
+	IFS=$OFS
+
+	edit "$key" "" "" "$accessList"
 }
 
 delete () {
@@ -307,6 +343,80 @@ elif [[ $action == "edit" ]]; then
 	fi
 
 	edit "$key" "$opt_autopromote" "${planGuid:-}" "${accessList:-}"
+
+elif [[ $action == "grant" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing server key" >&2
+		exit 1
+	fi
+	server=$1
+	shift
+
+	if [[ -z $1 ]]; then
+		echo "Error: Missing volume key" >&2
+		exit 1
+	fi
+	volumekey=$1
+	shift
+
+	serverkey=$(clean_access_list "$server" "$settings")
+
+	if [[ -z $serverkey ]]; then
+		exit 1
+	fi
+
+	grant_access "$serverkey" "$volumekey"
+
+elif [[ $action == "revoke" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+	shift $((${OPTIND:-1}-1))
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	if [[ -z $* ]]; then
+		echo "Error: Missing server key" >&2
+		exit 1
+	fi
+	serverkey=$1
+	shift
+
+	if [[ -z $1 ]]; then
+		echo "Error: Missing volume key" >&2
+		exit 1
+	fi
+	volumekey=$1
+	shift
+
+	if [[ $serverkey == "all" ]]; then
+		edit "$volumekey" "" "" "null"
+	else
+		revoke_access "$serverkey" "$volumekey"
+	fi
 
 elif [[ $action == "delete" ]]; then
 	while getopts "c:" option; do
