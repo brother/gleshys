@@ -71,9 +71,10 @@ inarray() { local q=$1 e; shift; (( $# )) && for e; do [[ $q = "$e" ]] && return
 # TODO wrap curl-json to avoid repeating the auth?
 clean_access_list () {
 	local listOfServers=$1
+	local settingsFile=$2
 	local accessList
 
-	servers=$(gleshys-server list -c "$settings")
+	mapfile -t servers < <(gleshys-server list -c "$settingsFile")
 	IFS=',' read -ra proposed <<< "$listOfServers"
 	declare -a list
 	for server in "${proposed[@]}"; do
@@ -280,7 +281,7 @@ elif [[ $action == "edit" ]]; then
 		# Will wipe the current list. Regardless of what it was.
 		accessList=null
 	else
-		accessList=$(clean_access_list "$server")
+		accessList=$(clean_access_list "$server" "$settings")
 	fi
 
 	# TODO extract to function and use in create as well. This enables
