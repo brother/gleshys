@@ -69,6 +69,26 @@ exportSettings() {
 inarray() { local q=$1 e; shift; (( $# )) && for e; do [[ $q = "$e" ]] && return; done; }
 
 # TODO wrap curl-json to avoid repeating the auth?
+clean_access_list () {
+	local listOfServers=$1
+	local accessList
+
+	servers=$(gleshys-server list -c "$settings")
+	IFS=',' read -ra proposed <<< "$listOfServers"
+	declare -a list
+	for server in "${proposed[@]}"; do
+		if inarray "$server" "${servers[@]}"; then
+			list+=("$server")
+		else
+			echo "Proposed server '$server' is not present in the current project. Skipping." >&2
+		fi
+	done
+	OFS=$IFS
+	IFS=','
+	echo "${list[*]}"
+	IFS=$OFS
+#	echo "$accessList"
+}
 
 volume_list () {
 	curl-json "{}" filestorage/listvolumes "$project:$apikey" | jq -r '.response.volumes[] | [.volumeid, .name, .plan.quota, .datacenter, .status, .islocked] | @csv' | tr -d '"'
@@ -260,20 +280,7 @@ elif [[ $action == "edit" ]]; then
 		# Will wipe the current list. Regardless of what it was.
 		accessList=null
 	else
-		servers=$(gleshys-server list -c "$settings")
-		IFS=',' read -ra proposed <<< "$opt_accesslist"
-		declare -a list
-		for server in "${proposed[@]}"; do
-			if inarray "$server" "${servers[@]}"; then
-				list+=("$server")
-			else
-				echo "Proposed server '$server' is not present in the current project. Skipping."
-			fi
-		done
-		OFS=$IFS
-		IFS=','
-		accessList="${list[*]}"
-		IFS=$OFS
+		accessList=$(clean_access_list "$server")
 	fi
 
 	# TODO extract to function and use in create as well. This enables
