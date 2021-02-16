@@ -33,6 +33,9 @@ order.
    `gleshys-session-destroy` to invalidate the key and remove the
    settings file.
 
+TODO / NOTE: Number 4 was working at some point but doesn't
+currently. Use one of the others.
+
 To avoid having to login, an API key can be obtained via the web
 interface at https://cloud.glesys.com. This key has no timeout and as
 long as the config file is provided (or you use the standard file) the
