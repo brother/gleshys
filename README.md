@@ -119,6 +119,7 @@ See also the TODO section below and the script
   * [x] server/backup
    * Revisit this when server/edit is done/can handle backups for KVM.
   * [x] server/console
+   * Support exposing local VNC details?
   * [x] server/details
   * [ ] server/reboot
    * Not applicable, covered by server/stop with type reboot.
@@ -139,6 +140,7 @@ See also the TODO section below and the script
   * [ ] server/networkadapters
   * [ ] server/previewcloudconfig
   * [ ] server/resetpassword
+    * Only for OpenVZ.
   * [ ] server/resourceusage
   * [ ] Add helper `gleshys server has key` to check if server exists in
         project.
