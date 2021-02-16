@@ -202,6 +202,11 @@ it just tells you that they are in use in some capacity.
       server script. Need an overhaul.
 * [ ] man pages for all commands.
 * [ ] Add `--max-time` to `curl-json`?
+* [ ] At login store a cache about all available organizations to
+      speed up project selection. If pick-project is requested without
+      organization maybe it should act nicer by showing all projects
+      to choose from. Or use the pick-organization internal just as
+      login does.
 
 # License
 
