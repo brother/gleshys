@@ -295,8 +295,17 @@ if [[ $action == "list" ]]; then
 
 	list_servers
 elif [[ $action == "templates" ]]; then
-	while getopts "c:" option; do
+	while getopts "p:c:" option; do
 		case "$option" in
+			p)
+				if [[ $OPTARG == "kvm" ]]; then
+					# A known problem is that the platform value is
+					# not always shown upper case for KVM.
+					OPTARG=KVM
+				fi
+				# TODO accept VMWARE, vmware and convert to the correct case: VMware
+				platform=$OPTARG
+				;;
 			c)
 				if [[ -f $OPTARG ]]; then
 					settings=$OPTARG
@@ -305,9 +314,6 @@ elif [[ $action == "templates" ]]; then
 			*) show_help ; exit 1 ;;
 		esac
 	done
-
-	shift $((${OPTIND:-1}-1))
-	platform=$*
 
 	settings=$(gleshys-discover-settings "$settings")
 	exportSettings "$settings"
@@ -344,7 +350,7 @@ elif [[ $action == "create" ]]; then
 					# not always shown upper case for KVM.
 					OPTARG=KVM
 				fi
-
+				# TODO accept VMWARE, vmware and convert to the correct case: VMware
 				opt_platform=$OPTARG
 				;;
 			h) opt_hostname=$OPTARG ;;
