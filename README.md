@@ -88,6 +88,23 @@ See also the TODO section below and the script
 * [ ] customer
   * [!] customer/listprojects
 * [ ] domain
+  * [ ] list
+  * [ ] add
+  * [ ] register
+  * [ ] transfer
+  * [ ] renew
+  * [ ] setautorenew
+  * [ ] available
+  * [ ] pricelist
+  * [ ] edit
+  * [ ] delete
+  * [ ] listrecords
+  * [ ] addrecord
+  * [ ] deleterecord
+  * [ ] allowedarguments
+  * [ ] changenameservers
+  * [ ] legacywebhosting
+    * Will not be added.
 * [ ] email
 * [x] filestorage
   * covered by `bin/gleshys-file-storage`

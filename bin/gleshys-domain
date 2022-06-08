@@ -1,0 +1,276 @@
+#!/bin/bash
+# This file is distributed as part of the GleShYS project and licensed
+# using the MIT License as apporved by OSI. Check project root for
+# license text and README file with further information.
+#
+# Copyright © 2020 Martin Bagge <brother@bsnet.se>.
+
+apikey=""
+project=""
+
+# Extract verb
+action=$1
+shift
+
+show_help () {
+	cat >&2 <<-EOF
+	usage: $(basename "$0") <action> [options] [domain name]
+
+		list	  Show list of domains for this project.
+		add	  	  Add domain to project
+				  (-r createrecords)
+				  (-m minimum)
+				  (-n primarynameserver)
+				  (-p responsibleperson)
+				  (-r refresh)
+				  (-t ttl)
+				  (-x expire)
+				  (-y retry)
+
+		-c		  Applicable for all actions.
+				  Provide alternative settings file.
+	EOF
+}
+
+exportSettings() {
+	local settingsFile=$1
+	if ! [[ -f $settingsFile ]]; then
+		exit 255
+	fi
+	apikey=$(cfg-get "$settingsFile" "apikey")
+	project=$(cfg-get "$settingsFile" "project")
+
+	if [[ -z $apikey ]]; then
+		echo "API key missing. Did you start the session before? Aborting."
+		exit 2
+	fi
+	if [[ -z $project ]]; then
+		echo "A project must be selected to execute this command. Forcing project picker process."
+		gleshys-pick-project "$settingsFile"
+		project=$(cfg-get "$settingsFile" "project")
+		if [[ -z $project ]]; then
+			exit 3
+		fi
+	fi
+
+}
+
+list_domains () {
+	curl-json "{}" domain/list "$project:$apikey" | jq #-r '.response.vpnusers[] | [.username, .protocol, .enabled] | @csv' | tr -d '"'
+}
+
+#add_user () {
+#	local username=$1
+#	local password=$2
+#
+#	curl-json "{\"username\":\"$username\",\"password\":\"$password\"}" vpn/createuser "$project:$apikey" | jq -r '.response.status.text'
+#}
+#
+#set_password () {
+#	local username=$1
+#	local password=$2
+#
+#	curl-json "{\"username\":\"$username\",\"password\":\"$password\"}" vpn/edituser "$project:$apikey" | jq -r '.response.status.text'
+#}
+#
+#enable_user () {
+#	local username=$1
+#
+#	curl-json "{\"username\":\"$username\",\"enabled\":\"yes\"}" vpn/edituser "$project:$apikey" | jq -r '.response.status.text'
+#}
+#
+#disable_user () {
+#	local username=$1
+#
+#	curl-json "{\"username\":\"$username\",\"enabled\":\"no\"}" vpn/edituser "$project:$apikey" | jq -r '.response.status.text'
+#}
+#
+#delete_user () {
+#	local username=$1
+#
+#	curl-json "{\"username\":\"$username\"}" vpn/deleteuser "$project:$apikey" | jq -r '.response.status.text'
+#}
+
+if [[ $action == "list" ]]; then
+	while getopts "c:" option; do
+		case "$option" in
+			c)
+				if [[ -f $OPTARG ]]; then
+					settings=$OPTARG
+				fi
+				;;
+			*) show_help ; exit 1 ;;
+		esac
+	done
+
+	settings=$(gleshys-discover-settings "$settings")
+	exportSettings "$settings"
+
+	list_domains
+
+#elif [[ $action == "add" ]]; then
+#	while getopts "u:p:c:" option; do
+#		case "$option" in
+#			u) opt_username=$OPTARG ;;
+#			p) opt_password=$OPTARG ;;
+#			c)
+#				if [[ -f $OPTARG ]]; then
+#					settings=$OPTARG
+#				fi
+#				;;
+#			*) show_help ; exit 1 ;;
+#		esac
+#	done
+#
+#	settings=$(gleshys-discover-settings "$settings")
+#	exportSettings "$settings"
+#
+#	if [[ $opt_username != ${project}_* ]]; then
+#	   echo "ABORT: The username starts with the project key and a underscore." >&2
+#	   exit 1
+#	fi
+#
+#	if (( ${#opt_username} < 11 )) ; then
+#		echo "ABORT: Username must be at least eleven (11) characters long." >&2
+#		show_help
+#		exit 1
+#	fi
+#
+#	# TODO if password is omitted and bash is in interactive offer a prompt to set the password.
+#	# TODO use the demand_value function from gleshys-start. Extract it to a stand alone command.
+#	if (( ${#opt_password} < 5 )) ; then
+#		echo "ABORT: Password must be at least five (5) characters long." >&2
+#		show_help
+#		exit 1
+#	fi
+#
+#	add_user "$opt_username" "$opt_password"
+#
+#elif [[ $action == "edit" ]]; then
+#	while getopts "u:p:c:" option; do
+#		case "$option" in
+#			u) opt_username=$OPTARG ;;
+#			p) opt_password=$OPTARG ;;
+#			c)
+#				if [[ -f $OPTARG ]]; then
+#					settings=$OPTARG
+#				fi
+#				;;
+#			*) show_help ; exit 1 ;;
+#		esac
+#	done
+#	shift $((${OPTIND:-1}-1))
+#
+#	settings=$(gleshys-discover-settings "$settings")
+#	exportSettings "$settings"
+#
+#	if [[ -z $opt_username ]]; then
+#		echo "ABORT: Edit what user? Missing -u ..." >&2
+#		show_help
+#		exit 1
+#	fi
+#
+#	# TODO find a better way of providing a password. In interactive it is easy, otherwise? env?
+#	if [[ $opt_password ]] && (( ${#opt_password} < 5 )) ; then
+#		echo "ABORT: Password must be at least five (5) characters long." >&2
+#	fi
+#
+#	set_password "$opt_username" "$opt_password"
+#
+#elif [[ $action == "enable" ]]; then
+#	while getopts "c:" option; do
+#		case "$option" in
+#			c)
+#				if [[ -f $OPTARG ]]; then
+#					settings=$OPTARG
+#				fi
+#				;;
+#			*) show_help ; exit 1 ;;
+#		esac
+#	done
+#	shift $((${OPTIND:-1}-1))
+#
+#	opt_username=$*
+#
+#	if [[ -z $opt_username ]]; then
+#		echo "ABORT: Enable what user?" >&2
+#		show_help
+#		exit 1
+#	fi
+#
+#	settings=$(gleshys-discover-settings "$settings")
+#	exportSettings "$settings"
+#
+#	if [[ $opt_username != ${project}_* ]]; then
+#	   echo "ABORT: The username starts with the project key and a underscore." >&2
+#	   exit 1
+#	fi
+#
+#	enable_user "$opt_username"
+#
+#elif [[ $action == "disable" ]]; then
+#	while getopts "c:" option; do
+#		case "$option" in
+#			c)
+#				if [[ -f $OPTARG ]]; then
+#					settings=$OPTARG
+#				fi
+#				;;
+#			*) show_help ; exit 1 ;;
+#		esac
+#	done
+#	shift $((${OPTIND:-1}-1))
+#
+#	opt_username=$*
+#
+#	if [[ -z $opt_username ]]; then
+#		echo "ABORT: Disable what user?" >&2
+#		show_help
+#		exit 1
+#	fi
+#
+#	settings=$(gleshys-discover-settings "$settings")
+#	exportSettings "$settings"
+#
+#	if [[ $opt_username != ${project}_* ]]; then
+#	   echo "ABORT: The username starts with the project key and a underscore." >&2
+#	   exit 1
+#	fi
+#
+#	disable_user "$opt_username"
+#
+#elif [[ $action == "delete" ]]; then
+#	while getopts "u:c:" option; do
+#		case "$option" in
+#			c)
+#				if [[ -f $OPTARG ]]; then
+#					settings=$OPTARG
+#				fi
+#				;;
+#			*) show_help ; exit 1 ;;
+#		esac
+#	done
+#	shift $((${OPTIND:-1}-1))
+#
+#	opt_username=$*
+#
+#	if [[ -z $opt_username ]]; then
+#		echo "ABORT: Remove what user?" >&2
+#		show_help
+#		exit 1
+#	fi
+#
+#	settings=$(gleshys-discover-settings "$settings")
+#	exportSettings "$settings"
+#
+#	if [[ $opt_username != ${project}_* ]]; then
+#	   echo "ABORT: The username starts with the project key and a underscore." >&2
+#	   exit 1
+#	fi
+#
+#	delete_user "$opt_username"
+else
+	show_help
+	exit 1
+fi
+
