@@ -20,6 +20,16 @@ organization and active project. If you do not worry about logging out
 the GleSYS API still has a timeout that will invalidate your access
 key.
 
+## Try it in a docker container
+
+To build ...
+
+    docker build . -t GleShYS:1
+
+To run ....
+
+    docker run --rm -it -v ${PWD}/bin:/usr/local/bin/ GleShYS:1 
+
 ## Persistent environment
 
 The GleShYS settings file is found by validating in this particular
