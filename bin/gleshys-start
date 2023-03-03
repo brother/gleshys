@@ -113,16 +113,15 @@ apikey=$(echo "$logindata" | jq -r ".response.login.apikey")
 cfg-set "$settingsfile" "username" "$username"
 cfg-set "$settingsfile" "apikey" "$apikey"
 
-
 if [[ $opt_organization ]]; then
 	cfg-set "$settingsfile" "organization" "$opt_organization"
 else
 	cfg-set "$settingsfile" "organization" ""
-	gleshys-pick-organization
+	gleshys-pick-organization "$settingsfile"
 fi
 if [[ $opt_project ]]; then
 	cfg-set "$settingsfile" "project" "${opt_project,,}"
 else
 	cfg-set "$settingsfile" "project" ""
-	gleshys-pick-project
+	gleshys-pick-project "$settingsfile"
 fi
